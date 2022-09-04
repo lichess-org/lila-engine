@@ -1,7 +1,14 @@
 use std::net::SocketAddr;
 
-use axum::{routing::get, Router};
+use api::Registration;
+use axum::{
+    extract::Json,
+    routing::{get, post},
+    Router,
+};
 use clap::Parser;
+
+mod api;
 
 #[derive(Parser)]
 struct Opt {
@@ -14,7 +21,9 @@ struct Opt {
 async fn main() {
     let opt = Opt::parse();
 
-    let app = Router::new().route("/", get(root));
+    let app = Router::new()
+        .route("/api/engine/registration", post(register))
+        .route("/api/engine/socket", get(socket));
 
     axum::Server::bind(&opt.bind)
         .serve(app.into_make_service())
@@ -22,4 +31,6 @@ async fn main() {
         .expect("bind");
 }
 
-async fn root() {}
+async fn register(Json(registration): Json<Registration>) {}
+
+async fn socket() {}
