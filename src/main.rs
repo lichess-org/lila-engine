@@ -10,7 +10,7 @@ use clap::Parser;
 use mongodb::{options::ClientOptions, Client};
 use serde::Deserialize;
 
-use crate::api::{AcquireRequest, AnalyseRequest};
+use crate::api::{EngineId, AcquireRequest, AnalyseRequest};
 
 mod api;
 
@@ -54,7 +54,7 @@ async fn main() {
 #[derive(TypedPath, Deserialize)]
 #[typed_path("/api/external-engine/:id/analyse")]
 struct AnalysePath {
-    id: String,
+    id: EngineId,
 }
 
 async fn analyse(AnalysePath { id }: AnalysePath, Json(req): Json<AnalyseRequest>) {

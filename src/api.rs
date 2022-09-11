@@ -2,6 +2,9 @@ use serde::Deserialize;
 use serde_with::{serde_as, DisplayFromStr};
 use shakmaty::{fen::Fen, uci::Uci};
 
+#[derive(Deserialize, String)]
+pub struct EngineId(String);
+
 #[derive(Deserialize, Debug)]
 pub struct ProviderSecret(String);
 
