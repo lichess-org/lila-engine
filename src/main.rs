@@ -9,18 +9,22 @@ use axum_extra::routing::{RouterExt, TypedPath};
 use clap::Parser;
 use mongodb::{options::ClientOptions, Client};
 use serde::Deserialize;
-use tokio::sync::mpsc::{channel, Sender};
-use tokio::task;
+use tokio::{
+    sync::mpsc::{channel, Sender},
+    task,
+};
 
 use crate::{
     api::{AcquireRequest, AnalyseRequest, EngineId, ProviderSelector},
     hub::{Hub, IsValid},
     ongoing::Ongoing,
+    repo::Repo,
 };
 
 mod api;
 mod hub;
 mod ongoing;
+mod repo;
 
 #[derive(Parser)]
 struct Opt {
@@ -48,6 +52,7 @@ impl IsValid for Work {
 struct AppState {
     hub: &'static Hub<ProviderSelector, Work>,
     ongoing: &'static Ongoing<WorkId, Work>,
+    repo: &'static Repo,
 }
 
 impl FromRef<AppState> for &'static Hub<ProviderSelector, Work> {
@@ -62,26 +67,20 @@ impl FromRef<AppState> for &'static Ongoing<WorkId, Work> {
     }
 }
 
-#[derive(Deserialize, Debug)]
-struct Registration {}
+impl FromRef<AppState> for &'static Repo {
+    fn from_ref(state: &AppState) -> &'static Repo {
+        state.repo
+    }
+}
 
 #[tokio::main]
 async fn main() {
     let opt = Opt::parse();
 
-    let db = Client::with_options(
-        ClientOptions::parse(opt.mongodb)
-            .await
-            .expect("mongodb options"),
-    )
-    .expect("mongodb client")
-    .database("lichess");
-
-    let registrations = db.collection::<Registration>("external_engine");
-
     let state = AppState {
         hub: Box::leak(Box::new(Hub::new())),
         ongoing: Box::leak(Box::new(Ongoing::new())),
+        repo: Box::leak(Box::new(Repo::new(&opt.mongodb).await)),
     };
 
     task::spawn(state.hub.garbage_collect());
@@ -108,11 +107,12 @@ struct AnalysePath {
 async fn analyse(
     AnalysePath { id }: AnalysePath,
     State(hub): State<&'static Hub<ProviderSelector, Work>>,
+    State(repo): State<&'static Repo>,
     Json(req): Json<AnalyseRequest>,
 ) {
-    let selector = todo!();
+    let engine = repo.find(id, todo!()).await.expect("TODO").expect("TODO not found");
     let (tx, rx) = channel(4);
-    hub.submit(selector, Work { tx });
+    hub.submit(engine.secret.selector(), Work { tx });
 }
 
 #[axum_macros::debug_handler(state = AppState)]

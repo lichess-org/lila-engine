@@ -19,11 +19,23 @@ impl fmt::Display for EngineId {
 #[derive(Deserialize, Debug)]
 pub struct ProviderSecret(String);
 
+impl ProviderSecret {
+    pub fn selector(&self) -> ProviderSelector {
+        todo!()
+    }
+}
+
 #[derive(Eq, PartialEq, Hash, Debug, Clone)]
 pub struct ProviderSelector(String);
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Eq)]
 pub struct ClientSecret(String);
+
+impl PartialEq for ClientSecret {
+    fn eq(&self, other: &ClientSecret) -> bool {
+        self.0 == other.0 // TODO
+    }
+}
 
 #[derive(Debug, Deserialize)]
 pub enum LichessVariant {
