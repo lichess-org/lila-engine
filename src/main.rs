@@ -13,6 +13,7 @@ use serde::Deserialize;
 use crate::api::{AcquireRequest, AnalyseRequest, EngineId};
 
 mod api;
+mod hub;
 
 #[derive(Parser)]
 struct Opt {
