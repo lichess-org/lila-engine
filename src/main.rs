@@ -10,7 +10,7 @@ use clap::Parser;
 use mongodb::{options::ClientOptions, Client};
 use serde::Deserialize;
 
-use crate::api::{EngineId, AcquireRequest, AnalyseRequest};
+use crate::api::{AcquireRequest, AnalyseRequest, EngineId};
 
 mod api;
 
