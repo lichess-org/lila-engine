@@ -11,6 +11,7 @@ edition = "2021"
 
 [dependencies]
 axum = "0.5.15"
+axum-extra = { version = "0.3.7", features = ["typed-routing"] }
 clap = { version = "3.2.20", features = ["derive"] }
 mongodb = { version = "2.3.0", features = ["tokio-runtime"] }
 serde = { version = "1.0.144", features = ["derive"] }

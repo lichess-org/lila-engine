@@ -5,6 +5,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use axum_extra::routing::{RouterExt, TypedPath};
 use clap::Parser;
 use mongodb::{options::ClientOptions, Client};
 use serde::Deserialize;
@@ -41,7 +42,7 @@ async fn main() {
     let registrations = db.collection::<Registration>("external_engine");
 
     let app = Router::new()
-        .route("/api/external-engine/:id/analyse", post(analyse))
+        .typed_post(analyse)
         .route("/api/external-engine/acquire", get(acquire));
 
     axum::Server::bind(&opt.bind)
@@ -50,8 +51,14 @@ async fn main() {
         .expect("bind");
 }
 
-async fn analyse(Json(req): Json<AnalyseRequest>) {
-    dbg!(req);
+#[derive(TypedPath, Deserialize)]
+#[typed_path("/api/external-engine/:id/analyse")]
+struct AnalysePath {
+    id: String,
+}
+
+async fn analyse(AnalysePath { id }: AnalysePath, Json(req): Json<AnalyseRequest>) {
+    dbg!(id, req);
 }
 
 async fn acquire(Json(req): Json<AcquireRequest>) {
