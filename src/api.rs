@@ -1,29 +1,30 @@
 use serde::Deserialize;
+use serde_with::{serde_as, DisplayFromStr};
+use shakmaty::{fen::Fen, uci::Uci};
 
 #[derive(Deserialize, Debug)]
 pub struct ProviderSecret(String);
 
 #[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct RegistrationRequest {
-    provider_secret: ProviderSecret,
-    provider_data: String,
-    name: String,
-    max_threads: u32,
-    max_hash: u32,
-    variants: Vec<String>,
-    official_stockfish: bool,
+pub struct ClientSecret(String);
+
+#[serde_as]
+#[derive(Deserialize, Debug)]
+pub struct AnalyseRequest {
+    client_secret: ClientSecret,
+    threads: u32,
+    hash_mib: u32,
+    path: String,
+    max_depth: u32,
+    multi_pv: u32,
+    ply: u32,
+    #[serde_as(as = "DisplayFromStr")]
+    initial_fen: Fen,
+    #[serde_as(as = "Vec<DisplayFromStr>")]
+    moves: Vec<Uci>,
 }
 
+#[derive(Deserialize, Debug)]
 pub struct AcquireRequest {
     provider_secret: ProviderSecret,
 }
-
-pub struct AcquireResponse {
-    provider_data: String,
-    work: Work,
-}
-
-pub struct Work {}
-
-pub struct Emit {}

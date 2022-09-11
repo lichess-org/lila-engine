@@ -9,6 +9,8 @@ use clap::Parser;
 use mongodb::{options::ClientOptions, Client};
 use serde::Deserialize;
 
+use crate::api::{AcquireRequest, AnalyseRequest};
+
 mod api;
 
 #[derive(Parser)]
@@ -38,7 +40,9 @@ async fn main() {
 
     let registrations = db.collection::<Registration>("external_engine");
 
-    let app = Router::new().route("/api/external-engine/:id/analyse", post(analyse));
+    let app = Router::new()
+        .route("/api/external-engine/:id/analyse", post(analyse))
+        .route("/api/external-engine/acquire", get(acquire));
 
     axum::Server::bind(&opt.bind)
         .serve(app.into_make_service())
@@ -46,11 +50,10 @@ async fn main() {
         .expect("bind");
 }
 
-#[derive(Deserialize, Debug)]
-struct AnalysisRequest {
-    client_secret: String,
+async fn analyse(Json(req): Json<AnalyseRequest>) {
+    dbg!(req);
 }
 
-async fn analyse(Json(req): Json<AnalysisRequest>) {
+async fn acquire(Json(req): Json<AcquireRequest>) {
     dbg!(req);
 }
