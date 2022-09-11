@@ -13,6 +13,10 @@ const NUM_SHARDS: usize = 64;
 
 const MAX_ITEMS: usize = 1024;
 
+pub trait IsValid {
+    fn is_valid(&self) -> bool;
+}
+
 pub struct Hub<S, R> {
     random_state: RandomState,
     shards: [Mutex<Shard<S, R>>; NUM_SHARDS],
@@ -53,7 +57,7 @@ impl<S, R: IsValid> Hub<S, R> {
         loop {
             for shard in &self.shards {
                 shard.lock().unwrap().garbage_collect();
-                sleep(Duration::from_secs(10)).await;
+                sleep(Duration::from_secs(13)).await;
             }
         }
     }
@@ -108,8 +112,4 @@ impl<R> Default for Queue<R> {
             inner: VecDeque::new(),
         }
     }
-}
-
-pub trait IsValid {
-    fn is_valid(&self) -> bool;
 }

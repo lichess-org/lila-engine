@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use axum::{
     extract::Json,
-    routing::{get, post},
+    routing::post,
     Router,
 };
 use axum_extra::routing::{RouterExt, TypedPath};
@@ -15,9 +15,11 @@ use tokio::sync::mpsc::channel;
 
 use crate::api::{AcquireRequest, AnalyseRequest, EngineId, ProviderSelector};
 use crate::hub::{Hub, IsValid};
+use crate::ongoing::Ongoing;
 
 mod api;
 mod hub;
+mod ongoing;
 
 #[derive(Parser)]
 struct Opt {
@@ -43,18 +45,18 @@ impl IsValid for Work {
 }
 
 struct AppState {
-    pending: &'static Hub<ProviderSelector, Work>,
-    ongoing: &'static Hub<WorkId, Work>,
+    hub: &'static Hub<ProviderSelector, Work>,
+    ongoing: &'static Ongoing<WorkId, Work>,
 }
 
 impl FromRef<AppState> for &'static Hub<ProviderSelector, Work> {
     fn from_ref(state: &AppState) -> &'static Hub<ProviderSelector, Work> {
-        state.pending
+        state.hub
     }
 }
 
-impl FromRef<AppState> for &'static Hub<WorkId, Work> {
-    fn from_ref(state: &AppState) -> &'static Hub<WorkId, Work> {
+impl FromRef<AppState> for &'static Ongoing<WorkId, Work> {
+    fn from_ref(state: &AppState) -> &'static Ongoing<WorkId, Work> {
         state.ongoing
     }
 }
@@ -77,8 +79,8 @@ async fn main() {
     let registrations = db.collection::<Registration>("external_engine");
 
     let state = AppState {
-        pending: Box::leak(Box::new(Hub::new())),
-        ongoing: Box::leak(Box::new(Hub::new())),
+        hub: Box::leak(Box::new(Hub::new())),
+        ongoing: Box::leak(Box::new(Ongoing::new())),
     };
 
     let app = Router::with_state(state)
@@ -98,17 +100,18 @@ struct AnalysePath {
     id: EngineId,
 }
 
-async fn analyse(AnalysePath { id }: AnalysePath, State(pending): State<&'static Hub<ProviderSelector, Work>>, Json(req): Json<AnalyseRequest>) {
+async fn analyse(AnalysePath { id }: AnalysePath, State(hub): State<&'static Hub<ProviderSelector, Work>>, Json(req): Json<AnalyseRequest>) {
     let selector = todo!();
     let (tx, rx) = channel(4);
-    pending.submit(selector, Work { tx });
+    hub.submit(selector, Work { tx });
 }
 
-async fn acquire(State(pending): State<&'static Hub<ProviderSelector, Work>>, State(ongoing): State<&'static Hub<WorkId, Work>>, Json(req): Json<AcquireRequest>) {
+async fn acquire(State(hub): State<&'static Hub<ProviderSelector, Work>>, State(ongoing): State<&'static Ongoing<WorkId, Work>>, Json(req): Json<AcquireRequest>) {
     let selector = todo!();
-    let work = pending.acquire(selector).await;
-    ongoing.submit(todo!(), work);
+    let work = hub.acquire(selector).await;
+    ongoing.add(todo!(), work);
 }
 
-async fn submit(State(ongoing): State<&'static Hub<WorkId, Work>>) {
+async fn submit(State(ongoing): State<&'static Ongoing<WorkId, Work>>) {
+    let work = ongoing.remove(todo!());
 }
