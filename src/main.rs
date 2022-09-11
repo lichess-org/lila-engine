@@ -29,6 +29,9 @@ struct Opt {
     pub mongodb: String,
 }
 
+#[derive(Clone, Hash, Eq, PartialEq)]
+struct WorkId(String);
+
 struct Work {
     tx: Sender<()>,
 }
@@ -40,12 +43,19 @@ impl IsValid for Work {
 }
 
 struct AppState {
-    hub: &'static Hub<ProviderSelector, Work>,
+    pending: &'static Hub<ProviderSelector, Work>,
+    ongoing: &'static Hub<WorkId, Work>,
 }
 
 impl FromRef<AppState> for &'static Hub<ProviderSelector, Work> {
     fn from_ref(state: &AppState) -> &'static Hub<ProviderSelector, Work> {
-        state.hub
+        state.pending
+    }
+}
+
+impl FromRef<AppState> for &'static Hub<WorkId, Work> {
+    fn from_ref(state: &AppState) -> &'static Hub<WorkId, Work> {
+        state.ongoing
     }
 }
 
@@ -67,12 +77,14 @@ async fn main() {
     let registrations = db.collection::<Registration>("external_engine");
 
     let state = AppState {
-        hub: Box::leak(Box::new(Hub::new())),
+        pending: Box::leak(Box::new(Hub::new())),
+        ongoing: Box::leak(Box::new(Hub::new())),
     };
 
     let app = Router::with_state(state)
         .typed_post(analyse)
-        .route("/api/external-engine/acquire", get(acquire));
+        .route("/api/external-engine/acquire", post(acquire))
+        .route("/api/external-engine/submit", post(submit));
 
     axum::Server::bind(&opt.bind)
         .serve(app.into_make_service())
@@ -86,12 +98,17 @@ struct AnalysePath {
     id: EngineId,
 }
 
-async fn analyse(AnalysePath { id }: AnalysePath, State(hub): State<&'static Hub<ProviderSelector, Work>>, Json(req): Json<AnalyseRequest>) {
+async fn analyse(AnalysePath { id }: AnalysePath, State(pending): State<&'static Hub<ProviderSelector, Work>>, Json(req): Json<AnalyseRequest>) {
     let selector = todo!();
     let (tx, rx) = channel(4);
-    hub.submit(selector, Work { tx });
+    pending.submit(selector, Work { tx });
 }
 
-async fn acquire(Json(req): Json<AcquireRequest>) {
-    dbg!(req);
+async fn acquire(State(pending): State<&'static Hub<ProviderSelector, Work>>, State(ongoing): State<&'static Hub<WorkId, Work>>, Json(req): Json<AcquireRequest>) {
+    let selector = todo!();
+    let work = pending.acquire(selector).await;
+    ongoing.submit(todo!(), work);
+}
+
+async fn submit(State(ongoing): State<&'static Hub<WorkId, Work>>) {
 }
