@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use axum::{
-    extract::Json,
+    extract::{FromRef, Json, State},
     routing::post,
     Router,
 };
@@ -9,13 +9,13 @@ use axum_extra::routing::{RouterExt, TypedPath};
 use clap::Parser;
 use mongodb::{options::ClientOptions, Client};
 use serde::Deserialize;
-use tokio::sync::mpsc::Sender;
-use axum::extract::{State, FromRef};
-use tokio::sync::mpsc::channel;
+use tokio::sync::mpsc::{channel, Sender};
 
-use crate::api::{AcquireRequest, AnalyseRequest, EngineId, ProviderSelector};
-use crate::hub::{Hub, IsValid};
-use crate::ongoing::Ongoing;
+use crate::{
+    api::{AcquireRequest, AnalyseRequest, EngineId, ProviderSelector},
+    hub::{Hub, IsValid},
+    ongoing::Ongoing,
+};
 
 mod api;
 mod hub;
@@ -84,7 +84,7 @@ async fn main() {
     };
 
     let app = Router::with_state(state)
-        .typed_post(analyse)
+        //.typed_post(analyse)
         .route("/api/external-engine/acquire", post(acquire))
         .route("/api/external-engine/submit", post(submit));
 
@@ -100,18 +100,29 @@ struct AnalysePath {
     id: EngineId,
 }
 
-async fn analyse(AnalysePath { id }: AnalysePath, State(hub): State<&'static Hub<ProviderSelector, Work>>, Json(req): Json<AnalyseRequest>) {
+#[axum_macros::debug_handler(state = AppState)]
+async fn analyse(
+    AnalysePath { id }: AnalysePath,
+    State(hub): State<&'static Hub<ProviderSelector, Work>>,
+    Json(req): Json<AnalyseRequest>,
+) {
     let selector = todo!();
     let (tx, rx) = channel(4);
     hub.submit(selector, Work { tx });
 }
 
-async fn acquire(State(hub): State<&'static Hub<ProviderSelector, Work>>, State(ongoing): State<&'static Ongoing<WorkId, Work>>, Json(req): Json<AcquireRequest>) {
+#[axum_macros::debug_handler(state = AppState)]
+async fn acquire(
+    State(hub): State<&'static Hub<ProviderSelector, Work>>,
+    State(ongoing): State<&'static Ongoing<WorkId, Work>>,
+    Json(req): Json<AcquireRequest>,
+) {
     let selector = todo!();
     let work = hub.acquire(selector).await;
     ongoing.add(todo!(), work);
 }
 
+#[axum_macros::debug_handler(state = AppState)]
 async fn submit(State(ongoing): State<&'static Ongoing<WorkId, Work>>) {
     let work = ongoing.remove(todo!());
 }

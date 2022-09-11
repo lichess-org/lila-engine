@@ -711,6 +711,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "axum-extra",
+ "axum-macros",
  "clap",
  "mongodb",
  "serde",

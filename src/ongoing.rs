@@ -1,11 +1,12 @@
-use std::sync::Mutex;
+use std::{
+    array,
+    collections::{hash_map::RandomState, HashMap},
+    hash::{BuildHasher, Hash, Hasher},
+    sync::Mutex,
+    time::Duration,
+};
+
 use tokio::time::sleep;
-use std::time::Duration;
-use std::collections::HashMap;
-use std::collections::hash_map::RandomState;
-use std::hash::{Hasher, BuildHasher};
-use std::array;
-use std::hash::Hash;
 
 use crate::hub::IsValid;
 
