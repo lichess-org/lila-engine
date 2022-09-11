@@ -10,6 +10,7 @@ use clap::Parser;
 use mongodb::{options::ClientOptions, Client};
 use serde::Deserialize;
 use tokio::sync::mpsc::{channel, Sender};
+use tokio::task;
 
 use crate::{
     api::{AcquireRequest, AnalyseRequest, EngineId, ProviderSelector},
@@ -82,6 +83,9 @@ async fn main() {
         hub: Box::leak(Box::new(Hub::new())),
         ongoing: Box::leak(Box::new(Ongoing::new())),
     };
+
+    task::spawn(state.hub.garbage_collect());
+    task::spawn(state.ongoing.garbage_collect());
 
     let app = Router::with_state(state)
         .typed_post(analyse)
