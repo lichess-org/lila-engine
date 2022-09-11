@@ -7,7 +7,6 @@ use axum::{
 };
 use axum_extra::routing::{RouterExt, TypedPath};
 use clap::Parser;
-use mongodb::{options::ClientOptions, Client};
 use serde::Deserialize;
 use tokio::{
     sync::mpsc::{channel, Sender},
@@ -50,9 +49,15 @@ impl IsValid for Work {
 }
 
 struct AppState {
+    repo: &'static Repo,
     hub: &'static Hub<ProviderSelector, Work>,
     ongoing: &'static Ongoing<WorkId, Work>,
-    repo: &'static Repo,
+}
+
+impl FromRef<AppState> for &'static Repo {
+    fn from_ref(state: &AppState) -> &'static Repo {
+        state.repo
+    }
 }
 
 impl FromRef<AppState> for &'static Hub<ProviderSelector, Work> {
@@ -67,20 +72,14 @@ impl FromRef<AppState> for &'static Ongoing<WorkId, Work> {
     }
 }
 
-impl FromRef<AppState> for &'static Repo {
-    fn from_ref(state: &AppState) -> &'static Repo {
-        state.repo
-    }
-}
-
 #[tokio::main]
 async fn main() {
     let opt = Opt::parse();
 
     let state = AppState {
+        repo: Box::leak(Box::new(Repo::new(&opt.mongodb).await)),
         hub: Box::leak(Box::new(Hub::new())),
         ongoing: Box::leak(Box::new(Ongoing::new())),
-        repo: Box::leak(Box::new(Repo::new(&opt.mongodb).await)),
     };
 
     task::spawn(state.hub.garbage_collect());
