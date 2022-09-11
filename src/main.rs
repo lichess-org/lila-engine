@@ -1,12 +1,13 @@
 use std::net::SocketAddr;
 
-use api::Registration;
 use axum::{
     extract::Json,
     routing::{get, post},
     Router,
 };
 use clap::Parser;
+
+use serde::Deserialize;
 
 mod api;
 
@@ -22,8 +23,7 @@ async fn main() {
     let opt = Opt::parse();
 
     let app = Router::new()
-        .route("/api/engine/registration", post(register))
-        .route("/api/engine/socket", get(socket));
+        .route("/api/external-engine/:id/analyse", post(analyse));
 
     axum::Server::bind(&opt.bind)
         .serve(app.into_make_service())
@@ -31,6 +31,11 @@ async fn main() {
         .expect("bind");
 }
 
-async fn register(Json(registration): Json<Registration>) {}
+#[derive(Deserialize, Debug)]
+struct AnalysisRequest {
+    client_secret: String,
+}
 
-async fn socket() {}
+async fn analyse(Json(req): Json<AnalysisRequest>) {
+    dbg!(req);
+}
