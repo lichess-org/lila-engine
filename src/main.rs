@@ -9,8 +9,12 @@ use axum_extra::routing::{RouterExt, TypedPath};
 use clap::Parser;
 use mongodb::{options::ClientOptions, Client};
 use serde::Deserialize;
+use tokio::sync::mpsc::Sender;
+use axum::extract::{State, FromRef};
+use tokio::sync::mpsc::channel;
 
-use crate::api::{AcquireRequest, AnalyseRequest, EngineId};
+use crate::api::{AcquireRequest, AnalyseRequest, EngineId, ProviderSelector};
+use crate::hub::{Hub, IsValid};
 
 mod api;
 mod hub;
@@ -23,6 +27,26 @@ struct Opt {
     /// Database.
     #[clap(long, default_value = "mongodb://localhost")]
     pub mongodb: String,
+}
+
+struct Work {
+    tx: Sender<()>,
+}
+
+impl IsValid for Work {
+    fn is_valid(&self) -> bool {
+        !self.tx.is_closed()
+    }
+}
+
+struct AppState {
+    hub: &'static Hub<ProviderSelector, Work>,
+}
+
+impl FromRef<AppState> for &'static Hub<ProviderSelector, Work> {
+    fn from_ref(state: &AppState) -> &'static Hub<ProviderSelector, Work> {
+        state.hub
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -42,7 +66,11 @@ async fn main() {
 
     let registrations = db.collection::<Registration>("external_engine");
 
-    let app = Router::new()
+    let state = AppState {
+        hub: Box::leak(Box::new(Hub::new())),
+    };
+
+    let app = Router::with_state(state)
         .typed_post(analyse)
         .route("/api/external-engine/acquire", get(acquire));
 
@@ -58,8 +86,10 @@ struct AnalysePath {
     id: EngineId,
 }
 
-async fn analyse(AnalysePath { id }: AnalysePath, Json(req): Json<AnalyseRequest>) {
-    dbg!(id, req);
+async fn analyse(AnalysePath { id }: AnalysePath, State(hub): State<&'static Hub<ProviderSelector, Work>>, Json(req): Json<AnalyseRequest>) {
+    let selector = todo!();
+    let (tx, rx) = channel(4);
+    hub.submit(selector, Work { tx });
 }
 
 async fn acquire(Json(req): Json<AcquireRequest>) {

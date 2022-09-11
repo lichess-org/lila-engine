@@ -19,6 +19,9 @@ impl fmt::Display for EngineId {
 #[derive(Deserialize, Debug)]
 pub struct ProviderSecret(String);
 
+#[derive(Eq, PartialEq, Hash, Debug, Clone)]
+pub struct ProviderSelector(String);
+
 #[derive(Deserialize, Debug)]
 pub struct ClientSecret(String);
 
