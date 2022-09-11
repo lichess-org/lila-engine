@@ -12,5 +12,6 @@ edition = "2021"
 [dependencies]
 axum = "0.5.15"
 clap = { version = "3.2.20", features = ["derive"] }
+mongodb = { version = "2.3.0", features = ["tokio-runtime"] }
 serde = { version = "1.0.144", features = ["derive"] }
 tokio = { version = "1.21.0", features = ["full"] }

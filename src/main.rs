@@ -6,7 +6,7 @@ use axum::{
     Router,
 };
 use clap::Parser;
-
+use mongodb::{options::ClientOptions, Client};
 use serde::Deserialize;
 
 mod api;
@@ -16,14 +16,29 @@ struct Opt {
     /// Binding address.
     #[clap(long, default_value = "127.0.0.1:9666")]
     pub bind: SocketAddr,
+    /// Database.
+    #[clap(long, default_value = "mongodb://localhost")]
+    pub mongodb: String,
 }
+
+#[derive(Deserialize, Debug)]
+struct Registration {}
 
 #[tokio::main]
 async fn main() {
     let opt = Opt::parse();
 
-    let app = Router::new()
-        .route("/api/external-engine/:id/analyse", post(analyse));
+    let db = Client::with_options(
+        ClientOptions::parse(opt.mongodb)
+            .await
+            .expect("mongodb options"),
+    )
+    .expect("mongodb client")
+    .database("lichess");
+
+    let registrations = db.collection::<Registration>("external_engine");
+
+    let app = Router::new().route("/api/external-engine/:id/analyse", post(analyse));
 
     axum::Server::bind(&opt.bind)
         .serve(app.into_make_service())

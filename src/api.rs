@@ -24,8 +24,6 @@ pub struct AcquireResponse {
     work: Work,
 }
 
-pub struct Work {
-}
+pub struct Work {}
 
-pub struct Emit {
-}
+pub struct Emit {}
