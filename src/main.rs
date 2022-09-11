@@ -84,7 +84,7 @@ async fn main() {
     };
 
     let app = Router::with_state(state)
-        //.typed_post(analyse)
+        .typed_post(analyse)
         .route("/api/external-engine/acquire", post(acquire))
         .route("/api/external-engine/submit", post(submit));
 

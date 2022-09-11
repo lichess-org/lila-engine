@@ -37,7 +37,8 @@ impl<S: Hash + Eq + Clone, R> Hub<S, R> {
     pub async fn acquire(&self, selector: S) -> R {
         let shard = self.shard(&selector);
         loop {
-            match shard.lock().unwrap().acquire(selector.clone()) {
+            let res = shard.lock().unwrap().acquire(selector.clone());
+            match res {
                 Ok(item) => return item,
                 Err(signal) => signal.notified().await,
             }
