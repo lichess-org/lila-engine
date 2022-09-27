@@ -111,7 +111,7 @@ async fn main() {
     let app = Router::with_state(state)
         .typed_post(analyse)
         .route("/api/external-engine/work", post(acquire))
-        .route("/api/external-engine/submit", post(submit));
+        .typed_post(submit);
 
     axum::Server::bind(&opt.bind)
         .serve(app.into_make_service())
@@ -166,7 +166,16 @@ async fn acquire(
     Json(response)
 }
 
+#[derive(TypedPath, Deserialize)]
+#[typed_path("/api/external-engine/work/:id")]
+struct SubmitPath {
+    id: JobId,
+}
+
 #[axum_macros::debug_handler(state = AppState)]
-async fn submit(State(ongoing): State<&'static Ongoing<JobId, Job>>) {
-    let work = ongoing.remove(todo!());
+async fn submit(
+    SubmitPath { id }: SubmitPath,
+    State(ongoing): State<&'static Ongoing<JobId, Job>>,
+) {
+    let work = ongoing.remove(&id);
 }
