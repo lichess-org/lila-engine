@@ -1,4 +1,5 @@
 use std::fmt;
+use sha2::{Digest, Sha256};
 
 use serde::Deserialize;
 use serde_with::{serde_as, DisplayFromStr};
@@ -21,12 +22,15 @@ pub struct ProviderSecret(String);
 
 impl ProviderSecret {
     pub fn selector(&self) -> ProviderSelector {
-        todo!()
+        let mut hasher = Sha256::new();
+        hasher.update("lila-engine");
+        hasher.update(self.0.as_bytes());
+        ProviderSelector(hasher.finalize().into())
     }
 }
 
 #[derive(Eq, PartialEq, Hash, Debug, Clone)]
-pub struct ProviderSelector(String);
+pub struct ProviderSelector([u8; 32]);
 
 #[derive(Deserialize, Debug, Eq)]
 pub struct ClientSecret(String);
@@ -93,5 +97,5 @@ pub struct Work {
 
 #[derive(Deserialize, Debug)]
 pub struct AcquireRequest {
-    secret: ProviderSecret,
+    provider_secret: ProviderSecret,
 }

@@ -724,6 +724,7 @@ dependencies = [
  "mongodb",
  "serde",
  "serde_with 2.0.1",
+ "sha2",
  "shakmaty",
  "thiserror",
  "tokio",
