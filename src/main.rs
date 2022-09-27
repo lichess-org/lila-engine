@@ -2,19 +2,19 @@ use std::net::SocketAddr;
 
 use axum::{
     extract::{FromRef, Json, State},
+    http::StatusCode,
+    response::{IntoResponse, Response},
     routing::post,
     Router,
-    response::{IntoResponse, Response},
-    http::StatusCode,
 };
 use axum_extra::routing::{RouterExt, TypedPath};
 use clap::Parser;
 use serde::Deserialize;
+use thiserror::Error;
 use tokio::{
     sync::mpsc::{channel, Sender},
     task,
 };
-use thiserror::Error;
 
 use crate::{
     api::{AcquireRequest, AnalyseRequest, EngineId, ProviderSelector},
@@ -79,11 +79,17 @@ impl FromRef<AppState> for &'static Ongoing<WorkId, Work> {
 enum Error {
     #[error("mongodb error: {0}")]
     MongoDb(#[from] mongodb::error::Error),
+    #[error("engine not found or invalid clientSecret")]
+    EngineNotFound,
 }
 
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
-        (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()).into_response()
+        let status = match self {
+            Error::MongoDb(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::EngineNotFound => StatusCode::NOT_FOUND,
+        };
+        (status, self.to_string()).into_response()
     }
 }
 
@@ -127,7 +133,7 @@ async fn analyse(
     let engine = repo
         .find(id, req.client_secret)
         .await?
-        .expect("TODO not found");
+        .ok_or(Error::EngineNotFound)?;
     let (tx, rx) = channel(4);
     hub.submit(engine.provider_secret.selector(), Work { tx });
     Ok(())

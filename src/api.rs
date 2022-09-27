@@ -1,8 +1,8 @@
 use std::fmt;
-use sha2::{Digest, Sha256};
 
 use serde::Deserialize;
 use serde_with::{serde_as, DisplayFromStr};
+use sha2::{Digest, Sha256};
 use shakmaty::{fen::Fen, uci::Uci, variant::Variant};
 
 #[derive(Deserialize, Debug)]
