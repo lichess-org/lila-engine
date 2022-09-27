@@ -110,7 +110,7 @@ async fn main() {
 
     let app = Router::with_state(state)
         .typed_post(analyse)
-        .route("/api/external-engine/work", post(acquire))
+        .typed_post(acquire)
         .typed_post(submit);
 
     axum::Server::bind(&opt.bind)
@@ -148,8 +148,13 @@ async fn analyse(
     Ok(())
 }
 
+#[derive(TypedPath, Deserialize)]
+#[typed_path("/api/external-engine/work")]
+struct AcquirePath;
+
 #[axum_macros::debug_handler(state = AppState)]
 async fn acquire(
+    _: AcquirePath,
     State(hub): State<&'static Hub<ProviderSelector, Job>>,
     State(ongoing): State<&'static Ongoing<JobId, Job>>,
     Json(req): Json<AcquireRequest>,
