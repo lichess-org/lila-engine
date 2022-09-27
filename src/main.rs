@@ -129,7 +129,7 @@ async fn analyse(
         .await?
         .expect("TODO not found");
     let (tx, rx) = channel(4);
-    hub.submit(engine.secret.selector(), Work { tx });
+    hub.submit(engine.provider_secret.selector(), Work { tx });
     Ok(())
 }
 
