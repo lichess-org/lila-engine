@@ -5,7 +5,7 @@ use serde_with::{serde_as, DisplayFromStr};
 use shakmaty::{fen::Fen, uci::Uci, variant::Variant};
 
 #[derive(Deserialize, Debug)]
-pub struct Sri(String);
+pub struct SessionId(String);
 
 #[derive(Deserialize, Debug)]
 pub struct EngineId(String);
@@ -72,7 +72,7 @@ pub struct AnalyseRequest {
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Work {
-    session_id: Sri,
+    session_id: SessionId,
     threads: u32,
     hash_mib: u32,
     max_depth: u32,
@@ -86,5 +86,5 @@ pub struct Work {
 
 #[derive(Deserialize, Debug)]
 pub struct AcquireRequest {
-    provider_secret: ProviderSecret,
+    secret: ProviderSecret,
 }
