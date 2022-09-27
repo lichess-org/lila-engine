@@ -61,11 +61,18 @@ pub enum LichessVariant {
     ThreeCheck,
 }
 
-#[serde_as]
 #[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct AnalyseRequest {
     pub client_secret: ClientSecret,
-    sri: Sri,
+    work: Work,
+}
+
+#[serde_as]
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Work {
+    session_id: Sri,
     threads: u32,
     hash_mib: u32,
     max_depth: u32,
