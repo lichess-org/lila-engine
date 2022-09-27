@@ -1,13 +1,44 @@
 use mongodb::{bson::doc, error::Error, options::ClientOptions, Client, Collection};
 use serde::Deserialize;
 
-use crate::api::{ClientSecret, EngineId, ProviderSecret};
+use crate::api::{
+    ClientSecret, Engine, EngineId, LichessVariant, ProviderSecret, ProviderSelector, UserId,
+};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalEngine {
-    pub client_secret: ClientSecret,
-    pub provider_secret: ProviderSecret,
+    #[serde(rename = "_id")]
+    id: EngineId,
+    name: String,
+    client_secret: ClientSecret,
+    user_id: UserId,
+    max_threads: u32,
+    max_hash: u32,
+    variants: Vec<LichessVariant>,
+    provider_secret: ProviderSecret,
+    provider_data: Option<String>,
+}
+
+impl ExternalEngine {
+    pub fn selector(&self) -> ProviderSelector {
+        self.provider_secret.selector()
+    }
+}
+
+impl From<ExternalEngine> for Engine {
+    fn from(engine: ExternalEngine) -> Engine {
+        Engine {
+            id: engine.id,
+            name: engine.name,
+            client_secret: engine.client_secret,
+            user_id: engine.user_id,
+            max_threads: engine.max_threads,
+            max_hash: engine.max_hash,
+            variants: engine.variants,
+            provider_data: engine.provider_data,
+        }
+    }
 }
 
 pub struct Repo {

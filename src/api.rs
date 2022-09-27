@@ -1,14 +1,17 @@
 use std::fmt;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use sha2::{Digest, Sha256};
-use shakmaty::{fen::Fen, uci::Uci, variant::Variant};
+use shakmaty::{fen::Fen, uci::Uci};
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct UserId(String);
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct SessionId(String);
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EngineId(pub String);
 
 impl fmt::Display for EngineId {
@@ -32,7 +35,7 @@ impl ProviderSecret {
 #[derive(Eq, PartialEq, Hash, Debug, Clone)]
 pub struct ProviderSelector([u8; 32]);
 
-#[derive(Deserialize, Debug, Eq)]
+#[derive(Deserialize, Serialize, Debug, Eq, Clone)]
 pub struct ClientSecret(String);
 
 impl PartialEq for ClientSecret {
@@ -48,7 +51,7 @@ impl PartialEq for ClientSecret {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Copy, Clone)]
 pub enum LichessVariant {
     #[serde(alias = "antichess")]
     Antichess,
@@ -76,11 +79,20 @@ pub enum LichessVariant {
 #[serde(rename_all = "camelCase")]
 pub struct AnalyseRequest {
     pub client_secret: ClientSecret,
-    work: Work,
+    pub work: Work,
+}
+
+#[derive(Serialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct JobId(String);
+
+impl JobId {
+    pub fn random() -> JobId {
+        JobId("123".to_owned()) // todo
+    }
 }
 
 #[serde_as]
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Work {
     session_id: SessionId,
@@ -95,8 +107,29 @@ pub struct Work {
     moves: Vec<Uci>,
 }
 
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Engine {
+    pub id: EngineId,
+    pub name: String,
+    pub client_secret: ClientSecret,
+    pub user_id: UserId,
+    pub max_threads: u32,
+    pub max_hash: u32,
+    pub variants: Vec<LichessVariant>,
+    pub provider_data: Option<String>,
+}
+
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct AcquireRequest {
     pub provider_secret: ProviderSecret,
+}
+
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AcquireResponse {
+    pub id: JobId,
+    pub work: Work,
+    pub engine: Engine,
 }

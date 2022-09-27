@@ -17,7 +17,10 @@ use tokio::{
 };
 
 use crate::{
-    api::{AcquireRequest, AnalyseRequest, EngineId, ProviderSelector},
+    api::{
+        AcquireRequest, AcquireResponse, AnalyseRequest, Engine, EngineId, JobId, ProviderSelector,
+        Work,
+    },
     hub::{Hub, IsValid},
     ongoing::Ongoing,
     repo::Repo,
@@ -38,14 +41,13 @@ struct Opt {
     pub mongodb: String,
 }
 
-#[derive(Clone, Hash, Eq, PartialEq)]
-struct WorkId(String);
-
-struct Work {
+struct Job {
     tx: Sender<()>,
+    engine: Engine,
+    work: Work,
 }
 
-impl IsValid for Work {
+impl IsValid for Job {
     fn is_valid(&self) -> bool {
         !self.tx.is_closed()
     }
@@ -53,8 +55,8 @@ impl IsValid for Work {
 
 struct AppState {
     repo: &'static Repo,
-    hub: &'static Hub<ProviderSelector, Work>,
-    ongoing: &'static Ongoing<WorkId, Work>,
+    hub: &'static Hub<ProviderSelector, Job>,
+    ongoing: &'static Ongoing<JobId, Job>,
 }
 
 impl FromRef<AppState> for &'static Repo {
@@ -63,14 +65,14 @@ impl FromRef<AppState> for &'static Repo {
     }
 }
 
-impl FromRef<AppState> for &'static Hub<ProviderSelector, Work> {
-    fn from_ref(state: &AppState) -> &'static Hub<ProviderSelector, Work> {
+impl FromRef<AppState> for &'static Hub<ProviderSelector, Job> {
+    fn from_ref(state: &AppState) -> &'static Hub<ProviderSelector, Job> {
         state.hub
     }
 }
 
-impl FromRef<AppState> for &'static Ongoing<WorkId, Work> {
-    fn from_ref(state: &AppState) -> &'static Ongoing<WorkId, Work> {
+impl FromRef<AppState> for &'static Ongoing<JobId, Job> {
+    fn from_ref(state: &AppState) -> &'static Ongoing<JobId, Job> {
         state.ongoing
     }
 }
@@ -126,7 +128,7 @@ struct AnalysePath {
 #[axum_macros::debug_handler(state = AppState)]
 async fn analyse(
     AnalysePath { id }: AnalysePath,
-    State(hub): State<&'static Hub<ProviderSelector, Work>>,
+    State(hub): State<&'static Hub<ProviderSelector, Job>>,
     State(repo): State<&'static Repo>,
     Json(req): Json<AnalyseRequest>,
 ) -> Result<(), Error> {
@@ -135,22 +137,36 @@ async fn analyse(
         .await?
         .ok_or(Error::EngineNotFound)?;
     let (tx, rx) = channel(4);
-    hub.submit(engine.provider_secret.selector(), Work { tx });
+    hub.submit(
+        engine.selector(),
+        Job {
+            tx,
+            engine: Engine::from(engine),
+            work: req.work,
+        },
+    );
     Ok(())
 }
 
 #[axum_macros::debug_handler(state = AppState)]
 async fn acquire(
-    State(hub): State<&'static Hub<ProviderSelector, Work>>,
-    State(ongoing): State<&'static Ongoing<WorkId, Work>>,
+    State(hub): State<&'static Hub<ProviderSelector, Job>>,
+    State(ongoing): State<&'static Ongoing<JobId, Job>>,
     Json(req): Json<AcquireRequest>,
-) {
+) -> Json<AcquireResponse> {
     let selector = req.provider_secret.selector();
-    let work = hub.acquire(selector).await;
-    ongoing.add(todo!(), work);
+    let job = hub.acquire(selector).await;
+    let id = JobId::random();
+    let response = AcquireResponse {
+        id: id.clone(),
+        engine: job.engine.clone(),
+        work: job.work.clone(),
+    };
+    ongoing.add(id, job);
+    Json(response)
 }
 
 #[axum_macros::debug_handler(state = AppState)]
-async fn submit(State(ongoing): State<&'static Ongoing<WorkId, Work>>) {
+async fn submit(State(ongoing): State<&'static Ongoing<JobId, Job>>) {
     let work = ongoing.remove(todo!());
 }
