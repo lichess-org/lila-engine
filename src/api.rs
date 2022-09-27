@@ -64,7 +64,7 @@ pub enum LichessVariant {
 #[serde_as]
 #[derive(Deserialize, Debug)]
 pub struct AnalyseRequest {
-    client_secret: ClientSecret,
+    pub client_secret: ClientSecret,
     sri: Sri,
     threads: u32,
     hash_mib: u32,

@@ -109,7 +109,7 @@ async fn analyse(
     State(repo): State<&'static Repo>,
     Json(req): Json<AnalyseRequest>,
 ) {
-    let engine = repo.find(id, todo!()).await.expect("TODO").expect("TODO not found");
+    let engine = repo.find(id, req.client_secret).await.expect("TODO").expect("TODO not found");
     let (tx, rx) = channel(4);
     hub.submit(engine.secret.selector(), Work { tx });
 }
