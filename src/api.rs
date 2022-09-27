@@ -96,6 +96,7 @@ pub struct Work {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct AcquireRequest {
-    provider_secret: ProviderSecret,
+    pub provider_secret: ProviderSecret,
 }

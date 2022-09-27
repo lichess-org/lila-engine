@@ -145,7 +145,7 @@ async fn acquire(
     State(ongoing): State<&'static Ongoing<WorkId, Work>>,
     Json(req): Json<AcquireRequest>,
 ) {
-    let selector = todo!();
+    let selector = req.provider_secret.selector();
     let work = hub.acquire(selector).await;
     ongoing.add(todo!(), work);
 }
