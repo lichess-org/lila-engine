@@ -1,10 +1,9 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, time::Duration};
 
 use axum::{
     extract::{FromRef, Json, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::post,
     Router,
 };
 use axum_extra::routing::{RouterExt, TypedPath};
@@ -14,6 +13,7 @@ use thiserror::Error;
 use tokio::{
     sync::mpsc::{channel, Sender},
     task,
+    time::{error::Elapsed, timeout},
 };
 
 use crate::{
@@ -152,15 +152,25 @@ async fn analyse(
 #[typed_path("/api/external-engine/work")]
 struct AcquirePath;
 
+struct AcquireTimeout;
+
+impl IntoResponse for AcquireTimeout {
+    fn into_response(self) -> Response {
+        StatusCode::NO_CONTENT.into_response()
+    }
+}
+
 #[axum_macros::debug_handler(state = AppState)]
 async fn acquire(
     _: AcquirePath,
     State(hub): State<&'static Hub<ProviderSelector, Job>>,
     State(ongoing): State<&'static Ongoing<JobId, Job>>,
     Json(req): Json<AcquireRequest>,
-) -> Json<AcquireResponse> {
+) -> Result<Json<AcquireResponse>, AcquireTimeout> {
     let selector = req.provider_secret.selector();
-    let job = hub.acquire(selector).await;
+    let job = timeout(Duration::from_secs(10), hub.acquire(selector))
+        .await
+        .map_err(|_: Elapsed| AcquireTimeout)?;
     let id = JobId::random();
     let response = AcquireResponse {
         id: id.clone(),
@@ -168,7 +178,7 @@ async fn acquire(
         work: job.work.clone(),
     };
     ongoing.add(id, job);
-    Json(response)
+    Ok(Json(response))
 }
 
 #[derive(TypedPath, Deserialize)]
