@@ -4,6 +4,8 @@ use axum::{
     extract::{FromRef, Json, State},
     routing::post,
     Router,
+    response::{IntoResponse, Response},
+    http::StatusCode,
 };
 use axum_extra::routing::{RouterExt, TypedPath};
 use clap::Parser;
@@ -12,6 +14,7 @@ use tokio::{
     sync::mpsc::{channel, Sender},
     task,
 };
+use thiserror::Error;
 
 use crate::{
     api::{AcquireRequest, AnalyseRequest, EngineId, ProviderSelector},
@@ -72,6 +75,18 @@ impl FromRef<AppState> for &'static Ongoing<WorkId, Work> {
     }
 }
 
+#[derive(Error, Debug, Clone)]
+enum Error {
+    #[error("mongodb error: {0}")]
+    MongoDb(#[from] mongodb::error::Error),
+}
+
+impl IntoResponse for Error {
+    fn into_response(self) -> Response {
+        (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()).into_response()
+    }
+}
+
 #[tokio::main]
 async fn main() {
     let opt = Opt::parse();
@@ -108,14 +123,14 @@ async fn analyse(
     State(hub): State<&'static Hub<ProviderSelector, Work>>,
     State(repo): State<&'static Repo>,
     Json(req): Json<AnalyseRequest>,
-) {
+) -> Result<(), Error> {
     let engine = repo
         .find(id, req.client_secret)
-        .await
-        .expect("TODO")
+        .await?
         .expect("TODO not found");
     let (tx, rx) = channel(4);
     hub.submit(engine.secret.selector(), Work { tx });
+    Ok(())
 }
 
 #[axum_macros::debug_handler(state = AppState)]

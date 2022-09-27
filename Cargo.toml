@@ -18,4 +18,5 @@ mongodb = { version = "2.3.0", features = ["tokio-runtime"] }
 serde = { version = "1.0.144", features = ["derive"] }
 serde_with = "2.0.1"
 shakmaty = { version = "0.22.0", features = ["variant"] }
+thiserror = "1.0.36"
 tokio = { version = "1.21.0", features = ["full"] }

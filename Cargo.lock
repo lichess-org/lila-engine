@@ -725,6 +725,7 @@ dependencies = [
  "serde",
  "serde_with 2.0.1",
  "shakmaty",
+ "thiserror",
  "tokio",
 ]
 
