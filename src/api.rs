@@ -8,7 +8,7 @@ use shakmaty::{fen::Fen, uci::Uci, variant::Variant};
 pub struct SessionId(String);
 
 #[derive(Deserialize, Debug)]
-pub struct EngineId(String);
+pub struct EngineId(pub String);
 
 impl fmt::Display for EngineId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -33,7 +33,14 @@ pub struct ClientSecret(String);
 
 impl PartialEq for ClientSecret {
     fn eq(&self, other: &ClientSecret) -> bool {
-        self.0 == other.0 // TODO
+        // Best effort constant time equality
+        self.0.len() == other.0.len()
+            && self
+                .0
+                .bytes()
+                .zip(other.0.bytes())
+                .fold(0, |acc, (left, right)| acc | (left ^ right))
+                == 0
     }
 }
 
