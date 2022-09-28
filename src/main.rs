@@ -1,20 +1,19 @@
-use std::io;
-use std::{net::SocketAddr, time::Duration};
-use futures_util::stream::TryStreamExt;
-use tokio::io::AsyncBufReadExt;
-use tokio::select;
+use std::{io, net::SocketAddr, time::Duration};
 
 use axum::{
-    extract::{FromRef, Json, State},
+    extract::{BodyStream, FromRef, Json, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     Router,
 };
 use axum_extra::routing::{RouterExt, TypedPath};
 use clap::Parser;
+use futures_util::stream::TryStreamExt;
 use serde::Deserialize;
 use thiserror::Error;
 use tokio::{
+    io::AsyncBufReadExt,
+    select,
     sync::mpsc::{channel, Sender},
     task,
     time::{error::Elapsed, timeout},
@@ -30,7 +29,6 @@ use crate::{
     ongoing::Ongoing,
     repo::Repo,
 };
-use axum::extract::BodyStream;
 
 mod api;
 mod hub;
@@ -108,8 +106,15 @@ impl IntoResponse for Error {
 
 #[tokio::main]
 async fn main() {
-    env_logger::Builder::from_env(env_logger::Env::new().filter("ENGINE_LOG").write_style("ENGINE_LOG_STYLE"))
-        .format_timestamp(None).format_module_path(false).format_target(false).init();
+    env_logger::Builder::from_env(
+        env_logger::Env::new()
+            .filter("ENGINE_LOG")
+            .write_style("ENGINE_LOG_STYLE"),
+    )
+    .format_timestamp(None)
+    .format_module_path(false)
+    .format_target(false)
+    .init();
 
     let opt = Opt::parse();
 
@@ -208,7 +213,7 @@ struct SubmitPath {
 async fn submit(
     SubmitPath { id }: SubmitPath,
     State(ongoing): State<&'static Ongoing<JobId, Job>>,
-    body: BodyStream
+    body: BodyStream,
 ) -> Result<(), Error> {
     let work = ongoing.remove(&id).ok_or(Error::WorkNotFound)?;
     let stream = body.map_err(|err| io::Error::new(io::ErrorKind::Other, err));
@@ -219,16 +224,15 @@ async fn submit(
             maybe_line = lines.next_line() => {
                 if let Some(line) = maybe_line? {
                     if work.tx.send(line).await.is_err() {
-                        // Requester gone away.
+                        log::debug!("requester disappeared");
                         break;
                     }
                 } else {
-                    // Provider gone away.
                     break;
                 }
             }
             _ = work.tx.closed() => {
-                // Requester gone away.
+                log::debug!("requester gone away");
                 break;
             }
         }

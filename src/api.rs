@@ -1,11 +1,13 @@
 use std::fmt;
 
+use rand::{
+    distributions::{Alphanumeric, DistString},
+    thread_rng,
+};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use sha2::{Digest, Sha256};
 use shakmaty::{fen::Fen, uci::Uci};
-use rand::thread_rng;
-use rand::distributions::{Alphanumeric, DistString};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct UserId(String);
@@ -143,5 +145,4 @@ pub struct AcquireResponse {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct Info {
-}
+pub struct Info {}
