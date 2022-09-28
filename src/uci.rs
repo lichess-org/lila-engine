@@ -6,6 +6,7 @@ use thiserror::Error;
 use memchr::{memchr2_iter, memchr2};
 use std::num::ParseIntError;
 use shakmaty::uci::ParseUciError;
+use std::fmt;
 
 #[derive(Error, Debug)]
 pub enum ProtocolError {
@@ -28,10 +29,32 @@ pub struct Score {
     upperbound: bool,
 }
 
+impl fmt::Display for Score {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.eval.fmt(f)?;
+        if self.lowerbound {
+            f.write_str(" lowerbound")?;
+        }
+        if self.upperbound {
+            f.write_str(" upperbound")?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Eval {
     Cp(i64),
     Mate(i32),
+}
+
+impl fmt::Display for Eval {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Eval::Cp(cp) => write!(f, "cp {cp}"),
+            Eval::Mate(mate) => write!(f, "mate {mate}"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -64,6 +87,105 @@ pub enum UciOut {
 impl UciOut {
     pub fn from_line(s: &str) -> Result<Option<UciOut>, ProtocolError> {
         Parser::new(s)?.parse_out()
+    }
+}
+
+impl fmt::Display for UciOut {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            UciOut::Bestmove { m, ponder } => {
+                match m {
+                    Some(m) => write!(f, "bestmove {m}")?,
+                    None => f.write_str("bestmove (none)")?,
+                }
+                if let Some(ponder) = ponder {
+                    write!(f, " ponder {ponder}")?;
+                }
+                Ok(())
+            }
+            UciOut::Info {
+                multipv,
+                depth,
+                seldepth,
+                time,
+                nodes,
+                score,
+                currmove,
+                currmovenumber,
+                hashfull,
+                nps,
+                tbhits,
+                sbhits,
+                cpuload,
+                refutation,
+                currline,
+                pv,
+                string,
+            } => {
+                f.write_str("info")?;
+                if let Some(multipv) = multipv {
+                    write!(f, " multipv {multipv}")?;
+                }
+                if let Some(depth) = depth {
+                    write!(f, " depth {depth}")?;
+                }
+                if let Some(seldepth) = seldepth {
+                    write!(f, " seldepth {seldepth}")?;
+                }
+                if let Some(time) = time {
+                    write!(f, " time {}", time.as_millis())?;
+                }
+                if let Some(nodes) = nodes {
+                    write!(f, " nodes {nodes}")?;
+                }
+                if let Some(score) = score {
+                    write!(f, " score {score}")?;
+                }
+                if let Some(currmove) = currmove {
+                    write!(f, " currmove {currmove}")?;
+                }
+                if let Some(currmovenumber) = currmovenumber {
+                    write!(f, " currmovenumber {currmovenumber}")?;
+                }
+                if let Some(hashfull) = hashfull {
+                    write!(f, " hashfull {hashfull}")?;
+                }
+                if let Some(nps) = nps {
+                    write!(f, " nps {nps}")?;
+                }
+                if let Some(tbhits) = tbhits {
+                    write!(f, " tbhits {tbhits}")?;
+                }
+                if let Some(sbhits) = sbhits {
+                    write!(f, " sbhits {sbhits}")?;
+                }
+                if let Some(cpuload) = cpuload {
+                    write!(f, " cpuload {cpuload}")?;
+                }
+                for (refuted, refuted_by) in refutation {
+                    write!(f, " refutation {refuted}")?;
+                    for m in refuted_by {
+                        write!(f, " {m}")?;
+                    }
+                }
+                for (cpunr, currline) in currline {
+                    write!(f, " currline {cpunr}")?;
+                    for m in currline {
+                        write!(f, " {m}")?;
+                    }
+                }
+                if let Some(pv) = pv {
+                    f.write_str(" pv")?;
+                    for m in pv {
+                        write!(f, " {m}")?;
+                    }
+                }
+                if let Some(string) = string {
+                    write!(f, " string {string}")?;
+                }
+                Ok(())
+            }
+        }
     }
 }
 
