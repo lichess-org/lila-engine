@@ -17,6 +17,7 @@ clap = { version = "3.2.20", features = ["derive"] }
 env_logger = "0.9.1"
 futures-util = "0.3.24"
 log = "0.4.17"
+memchr = "2.5.0"
 mongodb = { version = "2.3.0", features = ["tokio-runtime"] }
 rand = "0.8.5"
 serde = { version = "1.0.144", features = ["derive"] }

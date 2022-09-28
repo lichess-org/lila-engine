@@ -28,12 +28,14 @@ use crate::{
     hub::{Hub, IsValid},
     ongoing::Ongoing,
     repo::Repo,
+    uci::UciOut,
 };
 
 mod api;
 mod hub;
 mod ongoing;
 mod repo;
+mod uci;
 
 #[derive(Parser)]
 struct Opt {
@@ -46,7 +48,7 @@ struct Opt {
 }
 
 struct Job {
-    tx: Sender<String>,
+    tx: Sender<UciOut>,
     engine: Engine,
     work: Work,
 }
@@ -91,13 +93,15 @@ enum Error {
     WorkNotFound,
     #[error("i/o error: {0}")]
     IoError(#[from] io::Error),
+    #[error("uci protocol error: {0}")]
+    ProtocolError(#[from] uci::ProtocolError),
 }
 
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         let status = match self {
             Error::MongoDb(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            Error::IoError(_) => StatusCode::BAD_REQUEST,
+            Error::IoError(_) | Error::ProtocolError(_) => StatusCode::BAD_REQUEST,
             Error::EngineNotFound | Error::WorkNotFound => StatusCode::NOT_FOUND,
         };
         (status, self.to_string()).into_response()
@@ -165,7 +169,7 @@ async fn analyse(
         },
     );
     while let Some(line) = rx.recv().await {
-        log::info!("received: {}", line);
+        log::info!("received: {:?}", line);
     }
     Ok(())
 }
@@ -223,9 +227,11 @@ async fn submit(
         select! {
             maybe_line = lines.next_line() => {
                 if let Some(line) = maybe_line? {
-                    if work.tx.send(line).await.is_err() {
-                        log::debug!("requester disappeared");
-                        break;
+                    if let Some(uci) = UciOut::from_line(&line)? {
+                        if work.tx.send(uci).await.is_err() {
+                            log::debug!("requester disappeared");
+                            break;
+                        }
                     }
                 } else {
                     break;
