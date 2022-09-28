@@ -1,15 +1,15 @@
 use std::{io, net::SocketAddr, time::Duration};
 
 use axum::{
+    body::StreamBody,
     extract::{BodyStream, FromRef, Json, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     Router,
-    body::StreamBody,
 };
-use futures::stream::Stream;
 use axum_extra::routing::{RouterExt, TypedPath};
 use clap::Parser;
+use futures::stream::Stream;
 use futures_util::stream::{StreamExt, TryStreamExt};
 use serde::Deserialize;
 use thiserror::Error;
@@ -20,8 +20,8 @@ use tokio::{
     task,
     time::{error::Elapsed, timeout},
 };
-use tokio_util::io::StreamReader;
 use tokio_stream::wrappers::ReceiverStream;
+use tokio_util::io::StreamReader;
 
 use crate::{
     api::{
@@ -171,11 +171,13 @@ async fn analyse(
             work: req.work,
         },
     );
-    Ok(StreamBody::new(ReceiverStream::new(rx).map(|item| Ok({
-        let mut buf = item.to_string();
-        buf.push('\n');
-        buf
-    }))))
+    Ok(StreamBody::new(ReceiverStream::new(rx).map(|item| {
+        Ok({
+            let mut buf = item.to_string();
+            buf.push('\n');
+            buf
+        })
+    })))
 }
 
 #[derive(TypedPath, Deserialize)]

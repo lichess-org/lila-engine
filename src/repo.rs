@@ -1,5 +1,6 @@
 use mongodb::{bson::doc, error::Error, options::ClientOptions, Client, Collection};
 use serde::Deserialize;
+use tokio::task;
 
 use crate::api::{
     ClientSecret, Engine, EngineId, LichessVariant, ProviderSecret, ProviderSelector, UserId,
@@ -60,13 +61,18 @@ impl Repo {
     }
 
     pub async fn find(
-        &self,
+        &'static self,
         id: EngineId,
         client_secret: ClientSecret,
     ) -> Result<Option<ExternalEngine>, Error> {
-        self.coll
-            .find_one(doc! { "_id": id.0 }, None)
-            .await
-            .map(|engine| engine.filter(|e| e.client_secret == client_secret))
+        // MongoDB driver does not support cancellation.
+        task::spawn(async move {
+            self.coll
+                .find_one(doc! { "_id": id.0 }, None)
+                .await
+                .map(|engine| engine.filter(|e| e.client_secret == client_secret))
+        })
+        .await
+        .expect("join mongodb find")
     }
 }

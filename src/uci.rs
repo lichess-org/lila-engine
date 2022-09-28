@@ -1,12 +1,13 @@
-use std::time::Duration;
-use std::collections::HashMap;
-use shakmaty::uci::Uci;
-use std::num::NonZeroU32;
+use std::{
+    collections::HashMap,
+    fmt,
+    num::{NonZeroU32, ParseIntError},
+    time::Duration,
+};
+
+use memchr::{memchr2, memchr2_iter};
+use shakmaty::uci::{ParseUciError, Uci};
 use thiserror::Error;
-use memchr::{memchr2_iter, memchr2};
-use std::num::ParseIntError;
-use shakmaty::uci::ParseUciError;
-use std::fmt;
 
 #[derive(Error, Debug)]
 pub enum ProtocolError {
