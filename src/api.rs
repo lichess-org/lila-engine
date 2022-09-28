@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use sha2::{Digest, Sha256};
 use shakmaty::{fen::Fen, uci::Uci};
+use rand::thread_rng;
+use rand::distributions::{Alphanumeric, DistString};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct UserId(String);
@@ -93,7 +95,7 @@ impl fmt::Display for JobId {
 
 impl JobId {
     pub fn random() -> JobId {
-        JobId("123".to_owned()) // todo
+        JobId(Alphanumeric.sample_string(&mut thread_rng(), 16))
     }
 }
 
@@ -138,4 +140,8 @@ pub struct AcquireResponse {
     pub id: JobId,
     pub work: Work,
     pub engine: Engine,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct Info {
 }

@@ -1,4 +1,8 @@
+use std::io;
 use std::{net::SocketAddr, time::Duration};
+use futures_util::stream::TryStreamExt;
+use tokio::io::AsyncBufReadExt;
+use tokio::select;
 
 use axum::{
     extract::{FromRef, Json, State},
@@ -15,6 +19,7 @@ use tokio::{
     task,
     time::{error::Elapsed, timeout},
 };
+use tokio_util::io::StreamReader;
 
 use crate::{
     api::{
@@ -25,6 +30,7 @@ use crate::{
     ongoing::Ongoing,
     repo::Repo,
 };
+use axum::extract::BodyStream;
 
 mod api;
 mod hub;
@@ -42,7 +48,7 @@ struct Opt {
 }
 
 struct Job {
-    tx: Sender<()>,
+    tx: Sender<String>,
     engine: Engine,
     work: Work,
 }
@@ -77,19 +83,24 @@ impl FromRef<AppState> for &'static Ongoing<JobId, Job> {
     }
 }
 
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug)]
 enum Error {
     #[error("mongodb error: {0}")]
     MongoDb(#[from] mongodb::error::Error),
     #[error("engine not found or invalid clientSecret")]
     EngineNotFound,
+    #[error("work not found or cancelled or expired")]
+    WorkNotFound,
+    #[error("i/o error: {0}")]
+    IoError(#[from] io::Error),
 }
 
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         let status = match self {
             Error::MongoDb(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            Error::EngineNotFound => StatusCode::NOT_FOUND,
+            Error::IoError(_) => StatusCode::BAD_REQUEST,
+            Error::EngineNotFound | Error::WorkNotFound => StatusCode::NOT_FOUND,
         };
         (status, self.to_string()).into_response()
     }
@@ -97,6 +108,9 @@ impl IntoResponse for Error {
 
 #[tokio::main]
 async fn main() {
+    env_logger::Builder::from_env(env_logger::Env::new().filter("ENGINE_LOG").write_style("ENGINE_LOG_STYLE"))
+        .format_timestamp(None).format_module_path(false).format_target(false).init();
+
     let opt = Opt::parse();
 
     let state = AppState {
@@ -136,7 +150,7 @@ async fn analyse(
         .find(id, req.client_secret)
         .await?
         .ok_or(Error::EngineNotFound)?;
-    let (tx, rx) = channel(4);
+    let (tx, mut rx) = channel(1);
     hub.submit(
         engine.selector(),
         Job {
@@ -145,6 +159,9 @@ async fn analyse(
             work: req.work,
         },
     );
+    while let Some(line) = rx.recv().await {
+        log::info!("received: {}", line);
+    }
     Ok(())
 }
 
@@ -191,6 +208,30 @@ struct SubmitPath {
 async fn submit(
     SubmitPath { id }: SubmitPath,
     State(ongoing): State<&'static Ongoing<JobId, Job>>,
-) {
-    let work = ongoing.remove(&id);
+    body: BodyStream
+) -> Result<(), Error> {
+    let work = ongoing.remove(&id).ok_or(Error::WorkNotFound)?;
+    let stream = body.map_err(|err| io::Error::new(io::ErrorKind::Other, err));
+    let read = StreamReader::new(stream);
+    let mut lines = read.lines();
+    loop {
+        select! {
+            maybe_line = lines.next_line() => {
+                if let Some(line) = maybe_line? {
+                    if work.tx.send(line).await.is_err() {
+                        // Requester gone away.
+                        break;
+                    }
+                } else {
+                    // Provider gone away.
+                    break;
+                }
+            }
+            _ = work.tx.closed() => {
+                // Requester gone away.
+                break;
+            }
+        }
+    }
+    Ok(())
 }
