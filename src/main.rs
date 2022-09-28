@@ -5,10 +5,12 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
     Router,
+    body::StreamBody,
 };
+use futures::stream::Stream;
 use axum_extra::routing::{RouterExt, TypedPath};
 use clap::Parser;
-use futures_util::stream::TryStreamExt;
+use futures_util::stream::{StreamExt, TryStreamExt};
 use serde::Deserialize;
 use thiserror::Error;
 use tokio::{
@@ -19,6 +21,7 @@ use tokio::{
     time::{error::Elapsed, timeout},
 };
 use tokio_util::io::StreamReader;
+use tokio_stream::wrappers::ReceiverStream;
 
 use crate::{
     api::{
@@ -154,12 +157,12 @@ async fn analyse(
     State(hub): State<&'static Hub<ProviderSelector, Job>>,
     State(repo): State<&'static Repo>,
     Json(req): Json<AnalyseRequest>,
-) -> Result<(), Error> {
+) -> Result<StreamBody<impl Stream<Item = Result<String, io::Error>>>, Error> {
     let engine = repo
         .find(id, req.client_secret)
         .await?
         .ok_or(Error::EngineNotFound)?;
-    let (tx, mut rx) = channel(1);
+    let (tx, rx) = channel(1);
     hub.submit(
         engine.selector(),
         Job {
@@ -168,10 +171,11 @@ async fn analyse(
             work: req.work,
         },
     );
-    while let Some(line) = rx.recv().await {
-        log::info!("received: {:?}", line);
-    }
-    Ok(())
+    Ok(StreamBody::new(ReceiverStream::new(rx).map(|item| Ok({
+        let mut buf = item.to_string();
+        buf.push('\n');
+        buf
+    }))))
 }
 
 #[derive(TypedPath, Deserialize)]
