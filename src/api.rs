@@ -143,6 +143,3 @@ pub struct AcquireResponse {
     pub work: Work,
     pub engine: Engine,
 }
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct Info {}
