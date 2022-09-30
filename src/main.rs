@@ -48,6 +48,9 @@ struct Opt {
     /// Database.
     #[clap(long, default_value = "mongodb://localhost")]
     pub mongodb: String,
+    /// Allow access from all origins.
+    #[clap(long)]
+    pub cors: bool,
 }
 
 struct Job {
@@ -138,6 +141,15 @@ async fn main() {
         .typed_post(analyse)
         .typed_post(acquire)
         .typed_post(submit);
+
+    let app = if opt.cors {
+        app.layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
+            axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN,
+            axum::http::HeaderValue::from_static("*"),
+        ))
+    } else {
+        app
+    };
 
     axum::Server::bind(&opt.bind)
         .serve(app.into_make_service())
