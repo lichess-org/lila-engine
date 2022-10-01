@@ -241,22 +241,13 @@ async fn submit(
     let stream = body.map_err(|err| io::Error::new(io::ErrorKind::Other, err));
     let read = StreamReader::new(stream);
     let mut lines = read.lines();
-    loop {
-        select! {
-            maybe_line = lines.next_line() => {
-                if let Some(line) = maybe_line? {
-                    if let Some(uci) = UciOut::from_line(&line)? {
-                        if work.tx.send(uci).await.is_err() {
-                            log::debug!("requester disappeared");
-                            break;
-                        }
-                    }
-                } else {
-                    break;
-                }
-            }
-            _ = work.tx.closed() => {
-                log::debug!("requester gone away");
+    while let Some(line) = select! {
+        maybe_line = lines.next_line() => maybe_line?,
+        _ = work.tx.closed() => None,
+    } {
+        if let Some(uci) = UciOut::from_line(&line)? {
+            let is_bestmove = matches!(uci, UciOut::Bestmove { .. });
+            if work.tx.send(uci).await.is_err() || is_bestmove {
                 break;
             }
         }
