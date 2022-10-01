@@ -107,7 +107,7 @@ impl JobId {
 pub struct Work {
     session_id: SessionId,
     threads: u32,
-    hash_mib: u32,
+    hash: u32,
     max_depth: u32,
     multi_pv: u32,
     variant: LichessVariant,
