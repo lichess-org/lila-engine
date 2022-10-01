@@ -13,7 +13,7 @@ edition = "2021"
 axum = "0.6.0-rc.1"
 axum-extra = { version = "0.4.0-rc.1", features = ["typed-routing"] }
 axum-macros = "0.3.0-rc.1"
-clap = { version = "3.2.20", features = ["derive"] }
+clap = { version = "4.0.7", features = ["derive"] }
 env_logger = "0.9.1"
 futures = "0.3.24"
 futures-util = "0.3.24"
