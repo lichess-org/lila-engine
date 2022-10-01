@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use mongodb::{bson::doc, error::Error, options::ClientOptions, Client, Collection};
 use serde::Deserialize;
 use tokio::task;
@@ -14,8 +16,8 @@ pub struct ExternalEngine {
     name: String,
     client_secret: ClientSecret,
     user_id: UserId,
-    max_threads: u32,
-    max_hash: u32,
+    max_threads: NonZeroU32,
+    max_hash: NonZeroU32,
     variants: Vec<LichessVariant>,
     provider_secret: ProviderSecret,
     provider_data: Option<String>,

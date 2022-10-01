@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, num::NonZeroU32};
 
 use rand::{
     distributions::{Alphanumeric, DistString},
@@ -7,7 +7,7 @@ use rand::{
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use sha2::{Digest, Sha256};
-use shakmaty::{fen::Fen, uci::Uci};
+use shakmaty::{fen::Fen, uci::Uci, variant::Variant};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct UserId(String);
@@ -123,10 +123,10 @@ impl JobId {
 #[serde(rename_all = "camelCase")]
 pub struct Work {
     session_id: SessionId,
-    threads: u32,
-    hash: u32,
+    threads: NonZeroU32,
+    hash: NonZeroU32,
     max_depth: u32,
-    multi_pv: u32,
+    multi_pv: NonZeroU32,
     variant: LichessVariant,
     #[serde_as(as = "DisplayFromStr")]
     initial_fen: Fen,
@@ -141,8 +141,8 @@ pub struct Engine {
     pub name: String,
     pub client_secret: ClientSecret,
     pub user_id: UserId,
-    pub max_threads: u32,
-    pub max_hash: u32,
+    pub max_threads: NonZeroU32,
+    pub max_hash: NonZeroU32,
     pub variants: Vec<LichessVariant>,
     pub provider_data: Option<String>,
 }
