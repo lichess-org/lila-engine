@@ -29,4 +29,4 @@ thiserror = "1.0.36"
 tokio = { version = "1.21.0", features = ["full"] }
 tokio-stream = "0.1.10"
 tokio-util = "0.7.4"
-tower-http = { version = "0.3.4", features = ["set-header" ] }
+tower-http = { version = "0.3.4", features = ["cors"] }

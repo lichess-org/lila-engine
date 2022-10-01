@@ -143,10 +143,7 @@ async fn main() {
         .typed_post(submit);
 
     let app = if opt.cors {
-        app.layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
-            axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN,
-            axum::http::HeaderValue::from_static("*"),
-        ))
+        app.layer(tower_http::cors::CorsLayer::permissive())
     } else {
         app
     };
