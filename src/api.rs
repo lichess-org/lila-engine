@@ -79,6 +79,23 @@ pub enum LichessVariant {
     ThreeCheck,
 }
 
+impl From<LichessVariant> for Variant {
+    fn from(variant: LichessVariant) -> Variant {
+        match variant {
+            LichessVariant::Antichess => Variant::Antichess,
+            LichessVariant::Atomic => Variant::Atomic,
+            LichessVariant::Chess960 | LichessVariant::FromPosition | LichessVariant::Standard => {
+                Variant::Chess
+            }
+            LichessVariant::Crazyhouse => Variant::Crazyhouse,
+            LichessVariant::Horde => Variant::Horde,
+            LichessVariant::KingOfTheHill => Variant::KingOfTheHill,
+            LichessVariant::RacingKings => Variant::RacingKings,
+            LichessVariant::ThreeCheck => Variant::ThreeCheck,
+        }
+    }
+}
+
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct AnalyseRequest {
