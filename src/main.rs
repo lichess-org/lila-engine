@@ -12,6 +12,7 @@ use clap::Parser;
 use futures::stream::Stream;
 use futures_util::stream::{StreamExt, TryStreamExt};
 use serde::Deserialize;
+use shakmaty::variant::VariantPosition;
 use thiserror::Error;
 use tokio::{
     io::AsyncBufReadExt,
@@ -25,8 +26,8 @@ use tokio_util::io::StreamReader;
 
 use crate::{
     api::{
-        AcquireRequest, AcquireResponse, AnalyseRequest, Engine, EngineId, JobId, ProviderSelector,
-        Work,
+        AcquireRequest, AcquireResponse, AnalyseRequest, Engine, EngineId, InvalidWorkError, JobId,
+        ProviderSelector, Work,
     },
     hub::{Hub, IsValid},
     ongoing::Ongoing,
@@ -55,6 +56,7 @@ struct Opt {
 
 struct Job {
     tx: Sender<UciOut>,
+    pos: VariantPosition,
     engine: Engine,
     work: Work,
 }
@@ -98,16 +100,18 @@ enum Error {
     #[error("work not found or cancelled or expired")]
     WorkNotFound,
     #[error("i/o error: {0}")]
-    IoError(#[from] io::Error),
+    Io(#[from] io::Error),
     #[error("uci protocol error: {0}")]
-    ProtocolError(#[from] uci::ProtocolError),
+    Protocol(#[from] uci::ProtocolError),
+    #[error("invalid work: {0}")]
+    InvalidWork(#[from] InvalidWorkError),
 }
 
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         let status = match self {
             Error::MongoDb(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            Error::IoError(_) | Error::ProtocolError(_) => StatusCode::BAD_REQUEST,
+            Error::Io(_) | Error::Protocol(_) | Error::InvalidWork(_) => StatusCode::BAD_REQUEST,
             Error::EngineNotFound | Error::WorkNotFound => StatusCode::NOT_FOUND,
         };
         (status, self.to_string()).into_response()
@@ -171,13 +175,15 @@ async fn analyse(
         .find(id, req.client_secret)
         .await?
         .ok_or(Error::EngineNotFound)?;
+    let (work, pos) = req.work.sanitize(&engine)?;
     let (tx, rx) = channel(1);
     hub.submit(
         engine.selector(),
         Job {
             tx,
             engine: Engine::from(engine),
-            work: req.work,
+            work,
+            pos,
         },
     );
     Ok(StreamBody::new(ReceiverStream::new(rx).map(|item| {

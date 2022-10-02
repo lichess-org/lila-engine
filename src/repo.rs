@@ -16,9 +16,9 @@ pub struct ExternalEngine {
     name: String,
     client_secret: ClientSecret,
     user_id: UserId,
-    max_threads: NonZeroU32,
-    max_hash: NonZeroU32,
-    variants: Vec<LichessVariant>,
+    pub max_threads: NonZeroU32,
+    pub max_hash: NonZeroU32,
+    pub variants: Vec<LichessVariant>,
     provider_secret: ProviderSecret,
     provider_data: Option<String>,
 }

@@ -9,11 +9,13 @@ use serde_with::{serde_as, DisplayFromStr, DurationMilliSeconds, TryFromInto};
 use sha2::{Digest, Sha256};
 use shakmaty::{
     fen::Fen,
-    uci::Uci,
+    uci::{IllegalUciError, Uci},
     variant::{Variant, VariantPosition},
-    CastlingMode, EnPassantMode, IllegalUciError, Position as _, PositionError,
+    CastlingMode, EnPassantMode, Position as _, PositionError,
 };
 use thiserror::Error;
+
+use crate::repo::ExternalEngine;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct UserId(String);
@@ -127,6 +129,21 @@ impl From<LichessVariant> for Variant {
     }
 }
 
+impl From<Variant> for LichessVariant {
+    fn from(variant: Variant) -> LichessVariant {
+        match variant {
+            Variant::Chess => LichessVariant::Standard,
+            Variant::Antichess => LichessVariant::Antichess,
+            Variant::Atomic => LichessVariant::Atomic,
+            Variant::Crazyhouse => LichessVariant::Crazyhouse,
+            Variant::Horde => LichessVariant::Horde,
+            Variant::KingOfTheHill => LichessVariant::KingOfTheHill,
+            Variant::RacingKings => LichessVariant::RacingKings,
+            Variant::ThreeCheck => LichessVariant::ThreeCheck,
+        }
+    }
+}
+
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct AnalyseRequest {
@@ -170,27 +187,41 @@ pub struct Work {
 }
 
 #[derive(Error, Debug)]
-enum InvalidWork {
+pub enum InvalidWorkError {
     #[error("illegal initial position: {0}")]
     Position(#[from] PositionError<VariantPosition>),
     #[error("illegal uci: {0}")]
     IllegalUci(#[from] IllegalUciError),
     #[error("too many moves")]
     TooManyMoves,
+    #[error("unsupported variant")]
+    UnsupportedVariant,
 }
 
 impl Work {
-    pub fn sanitize(self, engine: &Engine) -> Result<(Work, VariantPosition), InvalidWork> {
+    pub fn sanitize(
+        self,
+        engine: &ExternalEngine,
+    ) -> Result<(Work, VariantPosition), InvalidWorkError> {
+        let variant = self.variant.into();
+        if !engine
+            .variants
+            .iter()
+            .copied()
+            .any(|v| Variant::from(v) == variant)
+        {
+            return Err(InvalidWorkError::UnsupportedVariant);
+        }
         let mut pos = VariantPosition::from_setup(
-            self.variant.into(),
+            variant,
             self.initial_fen.into_setup(),
             CastlingMode::Chess960,
         )?;
+        let initial_fen = Fen(pos.clone().into_setup(EnPassantMode::Legal));
         if self.moves.len() > 600 {
-            return Err(InvalidWork::TooManyMoves);
+            return Err(InvalidWorkError::TooManyMoves);
         }
         let mut moves = Vec::with_capacity(self.moves.len());
-        let initial_fen = Fen(pos.into_setup(EnPassantMode::Legal));
         for uci in self.moves {
             let m = uci.to_move(&pos)?;
             moves.push(m.to_uci(CastlingMode::Chess960));
@@ -205,7 +236,7 @@ impl Work {
                 time: self.time,
                 nodes: self.nodes,
                 multi_pv: self.multi_pv,
-                variant: self.variant,
+                variant: variant.into(),
                 initial_fen,
                 moves,
             },
