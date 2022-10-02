@@ -37,16 +37,16 @@ pub struct MultiPv(u32);
 
 #[derive(Error, Debug)]
 #[error("supported range is 1 to 5")]
-pub struct InvalidMultiPv;
+pub struct InvalidMultiPvError;
 
 impl TryFrom<u32> for MultiPv {
-    type Error = InvalidMultiPv;
+    type Error = InvalidMultiPvError;
 
-    fn try_from(n: u32) -> Result<MultiPv, InvalidMultiPv> {
+    fn try_from(n: u32) -> Result<MultiPv, InvalidMultiPvError> {
         if 1 <= n && n <= 5 {
             Ok(MultiPv(n))
         } else {
-            Err(InvalidMultiPv)
+            Err(InvalidMultiPvError)
         }
     }
 }
@@ -54,6 +54,12 @@ impl TryFrom<u32> for MultiPv {
 impl From<MultiPv> for u32 {
     fn from(MultiPv(n): MultiPv) -> u32 {
         n
+    }
+}
+
+impl fmt::Display for MultiPv {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 

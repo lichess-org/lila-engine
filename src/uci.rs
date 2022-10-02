@@ -1,13 +1,10 @@
-use std::{
-    collections::HashMap,
-    fmt,
-    num::{NonZeroU32, ParseIntError},
-    time::Duration,
-};
+use std::{collections::HashMap, fmt, num::ParseIntError, time::Duration};
 
 use memchr::{memchr2, memchr2_iter};
 use shakmaty::uci::{ParseUciError, Uci};
 use thiserror::Error;
+
+use crate::api::{InvalidMultiPvError, MultiPv};
 
 #[derive(Error, Debug)]
 pub enum ProtocolError {
@@ -21,6 +18,8 @@ pub enum ProtocolError {
     InvalidMove(#[from] ParseUciError),
     #[error("invalid integer: {0}")]
     InvalidInteger(#[from] ParseIntError),
+    #[error("invalid multipv: {0}")]
+    InvalidMultipv(#[from] InvalidMultiPvError),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,7 +64,7 @@ pub enum UciOut {
         ponder: Option<Uci>,
     },
     Info {
-        multipv: Option<NonZeroU32>,
+        multipv: Option<MultiPv>,
         depth: Option<u32>,
         seldepth: Option<u32>,
         time: Option<Duration>,
@@ -318,7 +317,8 @@ impl<'a> Parser<'a> {
                     multipv = Some(
                         self.next()
                             .ok_or(ProtocolError::UnexpectedEndOfLine)?
-                            .parse()?,
+                            .parse::<u32>()?
+                            .try_into()?,
                     )
                 }
                 Some("depth") => {
