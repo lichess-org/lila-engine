@@ -1,4 +1,4 @@
-use std::{fmt, num::NonZeroU32, time::Duration};
+use std::{cmp::min, fmt, num::NonZeroU32, time::Duration};
 
 use rand::{
     distributions::{Alphanumeric, DistString},
@@ -11,6 +11,7 @@ use shakmaty::{
     fen::Fen,
     uci::Uci,
     variant::{Variant, VariantPosition},
+    CastlingMode, EnPassantMode, IllegalUciError, Position as _, PositionError,
 };
 use thiserror::Error;
 
@@ -168,9 +169,48 @@ pub struct Work {
     moves: Vec<Uci>,
 }
 
+#[derive(Error, Debug)]
+enum InvalidWork {
+    #[error("illegal initial position: {0}")]
+    Position(#[from] PositionError<VariantPosition>),
+    #[error("illegal uci: {0}")]
+    IllegalUci(#[from] IllegalUciError),
+    #[error("too many moves")]
+    TooManyMoves,
+}
+
 impl Work {
-    pub fn sanitize(self) -> Result<(Work, VariantPosition), ()> {
-        todo!()
+    pub fn sanitize(self, engine: &Engine) -> Result<(Work, VariantPosition), InvalidWork> {
+        let mut pos = VariantPosition::from_setup(
+            self.variant.into(),
+            self.initial_fen.into_setup(),
+            CastlingMode::Chess960,
+        )?;
+        if self.moves.len() > 600 {
+            return Err(InvalidWork::TooManyMoves);
+        }
+        let mut moves = Vec::with_capacity(self.moves.len());
+        let initial_fen = Fen(pos.into_setup(EnPassantMode::Legal));
+        for uci in self.moves {
+            let m = uci.to_move(&pos)?;
+            moves.push(m.to_uci(CastlingMode::Chess960));
+            pos.play_unchecked(&m);
+        }
+        Ok((
+            Work {
+                session_id: self.session_id,
+                threads: min(self.threads, engine.max_threads),
+                hash: min(self.hash, engine.max_hash),
+                depth: self.depth.map(|d| min(d, 245)),
+                time: self.time,
+                nodes: self.nodes,
+                multi_pv: self.multi_pv,
+                variant: self.variant,
+                initial_fen,
+                moves,
+            },
+            pos,
+        ))
     }
 }
 
