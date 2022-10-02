@@ -5,9 +5,10 @@ use rand::{
     thread_rng,
 };
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{serde_as, DisplayFromStr, TryFromInto};
 use sha2::{Digest, Sha256};
 use shakmaty::{fen::Fen, uci::Uci, variant::Variant};
+use thiserror::Error;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct UserId(String);
@@ -21,6 +22,31 @@ pub struct EngineId(pub String);
 impl fmt::Display for EngineId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct MultiPv(u32);
+
+#[derive(Error, Debug)]
+#[error("supported range is 1 to 5")]
+pub struct InvalidMultiPv;
+
+impl TryFrom<u32> for MultiPv {
+    type Error = InvalidMultiPv;
+
+    fn try_from(n: u32) -> Result<MultiPv, InvalidMultiPv> {
+        if 1 <= n && n <= 5 {
+            Ok(MultiPv(n))
+        } else {
+            Err(InvalidMultiPv)
+        }
+    }
+}
+
+impl From<MultiPv> for u32 {
+    fn from(MultiPv(n): MultiPv) -> u32 {
+        n
     }
 }
 
@@ -126,7 +152,8 @@ pub struct Work {
     threads: NonZeroU32,
     hash: NonZeroU32,
     max_depth: u32,
-    multi_pv: NonZeroU32,
+    #[serde_as(as = "TryFromInto<u32>")]
+    multi_pv: MultiPv,
     variant: LichessVariant,
     #[serde_as(as = "DisplayFromStr")]
     initial_fen: Fen,
