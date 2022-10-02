@@ -1,13 +1,17 @@
-use std::{fmt, num::NonZeroU32};
+use std::{fmt, num::NonZeroU32, time::Duration};
 
 use rand::{
     distributions::{Alphanumeric, DistString},
     thread_rng,
 };
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr, TryFromInto};
+use serde_with::{serde_as, DisplayFromStr, DurationMilliSeconds, TryFromInto};
 use sha2::{Digest, Sha256};
-use shakmaty::{fen::Fen, uci::Uci, variant::Variant};
+use shakmaty::{
+    fen::Fen,
+    uci::Uci,
+    variant::{Variant, VariantPosition},
+};
 use thiserror::Error;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -151,7 +155,10 @@ pub struct Work {
     session_id: SessionId,
     threads: NonZeroU32,
     hash: NonZeroU32,
-    max_depth: u32,
+    depth: Option<u32>,
+    #[serde_as(as = "Option<DurationMilliSeconds>")]
+    time: Option<Duration>,
+    nodes: Option<u64>,
     #[serde_as(as = "TryFromInto<u32>")]
     multi_pv: MultiPv,
     variant: LichessVariant,
@@ -159,6 +166,12 @@ pub struct Work {
     initial_fen: Fen,
     #[serde_as(as = "Vec<DisplayFromStr>")]
     moves: Vec<Uci>,
+}
+
+impl Work {
+    pub fn sanitize(self) -> Result<(Work, VariantPosition), ()> {
+        todo!()
+    }
 }
 
 #[derive(Serialize, Debug, Clone)]
