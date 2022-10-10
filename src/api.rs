@@ -69,14 +69,14 @@ pub struct ProviderSecret(String);
 impl ProviderSecret {
     pub fn selector(&self) -> ProviderSelector {
         let mut hasher = Sha256::new();
-        hasher.update("lila-engine");
+        hasher.update("providerSecret:");
         hasher.update(self.0.as_bytes());
-        ProviderSelector(hasher.finalize().into())
+        ProviderSelector(hex::encode(hasher.finalize()))
     }
 }
 
-#[derive(Eq, PartialEq, Hash, Debug, Clone)]
-pub struct ProviderSelector([u8; 32]);
+#[derive(Deserialize, Eq, PartialEq, Hash, Debug, Clone)]
+pub struct ProviderSelector(String);
 
 #[derive(Deserialize, Serialize, Debug, Eq, Clone)]
 pub struct ClientSecret(String);

@@ -833,6 +833,7 @@ dependencies = [
  "env_logger",
  "futures",
  "futures-util",
+ "hex",
  "log",
  "memchr",
  "mongodb",

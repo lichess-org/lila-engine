@@ -4,9 +4,7 @@ use mongodb::{bson::doc, error::Error, options::ClientOptions, Client, Collectio
 use serde::Deserialize;
 use tokio::task;
 
-use crate::api::{
-    ClientSecret, Engine, EngineId, LichessVariant, ProviderSecret, ProviderSelector, UserId,
-};
+use crate::api::{ClientSecret, Engine, EngineId, LichessVariant, ProviderSelector, UserId};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,14 +17,8 @@ pub struct ExternalEngine {
     pub max_threads: NonZeroU32,
     pub max_hash: NonZeroU32,
     pub variants: Vec<LichessVariant>,
-    provider_secret: ProviderSecret,
+    pub provider_selector: ProviderSelector,
     provider_data: Option<String>,
-}
-
-impl ExternalEngine {
-    pub fn selector(&self) -> ProviderSelector {
-        self.provider_secret.selector()
-    }
 }
 
 impl From<ExternalEngine> for Engine {

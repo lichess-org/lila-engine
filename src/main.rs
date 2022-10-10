@@ -170,7 +170,7 @@ async fn analyse(
     let (work, pos) = req.work.sanitize(&engine)?;
     let (tx, rx) = channel(1);
     hub.submit(
-        engine.selector(),
+        engine.provider_selector.clone(),
         Job {
             tx,
             engine: Engine::from(engine),
