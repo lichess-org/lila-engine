@@ -1,11 +1,11 @@
-use std::{cmp::min, fmt, num::NonZeroU32, time::Duration};
+use std::{cmp::min, fmt, num::NonZeroU32};
 
 use rand::{
     distributions::{Alphanumeric, DistString},
     thread_rng,
 };
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr, DurationMilliSeconds, TryFromInto};
+use serde_with::{serde_as, DisplayFromStr, TryFromInto};
 use sha2::{Digest, Sha256};
 use shakmaty::{
     fen::Fen,
@@ -179,10 +179,7 @@ pub struct Work {
     session_id: SessionId,
     threads: NonZeroU32,
     hash: NonZeroU32,
-    depth: Option<u32>,
-    #[serde_as(as = "Option<DurationMilliSeconds>")]
-    time: Option<Duration>,
-    nodes: Option<u64>,
+    deep: bool,
     #[serde_as(as = "TryFromInto<u32>")]
     multi_pv: MultiPv,
     variant: LichessVariant,
@@ -238,9 +235,7 @@ impl Work {
                 session_id: self.session_id,
                 threads: min(self.threads, engine.max_threads),
                 hash: min(self.hash, engine.max_hash),
-                depth: self.depth.map(|d| min(d, 245)),
-                time: self.time,
-                nodes: self.nodes,
+                deep: self.deep,
                 multi_pv: self.multi_pv,
                 variant: variant.into(),
                 initial_fen,
