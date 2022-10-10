@@ -44,10 +44,10 @@ mod uci;
 #[derive(Parser)]
 struct Opt {
     /// Binding address.
-    #[clap(long, default_value = "127.0.0.1:9666")]
+    #[arg(long, default_value = "127.0.0.1:9666")]
     pub bind: SocketAddr,
     /// Database.
-    #[clap(long, default_value = "mongodb://localhost")]
+    #[arg(long, default_value = "mongodb://localhost")]
     pub mongodb: String,
 }
 
