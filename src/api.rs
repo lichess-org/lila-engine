@@ -267,6 +267,8 @@ pub struct Engine {
     pub user_id: UserId,
     pub max_threads: NonZeroU32,
     pub max_hash: NonZeroU32,
+    pub shallow_depth: u32,
+    pub deep_depth: u32,
     pub variants: Vec<LichessVariant>,
     pub provider_data: Option<String>,
 }

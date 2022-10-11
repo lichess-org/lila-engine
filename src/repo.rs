@@ -16,6 +16,8 @@ pub struct ExternalEngine {
     user_id: UserId,
     pub max_threads: NonZeroU32,
     pub max_hash: NonZeroU32,
+    shallow_depth: u32,
+    deep_depth: u32,
     pub variants: Vec<LichessVariant>,
     pub provider_selector: ProviderSelector,
     provider_data: Option<String>,
@@ -30,6 +32,8 @@ impl From<ExternalEngine> for Engine {
             user_id: engine.user_id,
             max_threads: engine.max_threads,
             max_hash: engine.max_hash,
+            shallow_depth: engine.shallow_depth,
+            deep_depth: engine.deep_depth,
             variants: engine.variants,
             provider_data: engine.provider_data,
         }
