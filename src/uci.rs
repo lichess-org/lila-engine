@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt, num::ParseIntError, time::Duration};
+use std::{collections::HashMap, fmt, num::ParseIntError, ops::Neg, time::Duration};
 
 use memchr::{memchr2, memchr2_iter};
 use serde::Serialize;
@@ -48,6 +48,17 @@ impl fmt::Display for Score {
 pub enum Eval {
     Cp(i64),
     Mate(i32),
+}
+
+impl Neg for Eval {
+    type Output = Eval;
+
+    fn neg(self) -> Eval {
+        match self {
+            Eval::Cp(cp) => Eval::Cp(cp.saturating_neg()),
+            Eval::Mate(mate) => Eval::Mate(mate.saturating_neg()),
+        }
+    }
 }
 
 impl fmt::Display for Eval {
