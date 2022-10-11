@@ -25,9 +25,9 @@ pub enum ProtocolError {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Score {
-    eval: Eval,
-    lowerbound: bool,
-    upperbound: bool,
+    pub eval: Eval,
+    pub lowerbound: bool,
+    pub upperbound: bool,
 }
 
 impl fmt::Display for Score {
@@ -43,7 +43,7 @@ impl fmt::Display for Score {
     }
 }
 
-#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Eval {
     Cp(i64),
     Mate(i32),

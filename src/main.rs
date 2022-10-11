@@ -13,7 +13,7 @@ use futures::stream::Stream;
 use futures_util::stream::{StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr, DurationMilliSeconds};
-use shakmaty::{uci::Uci, variant::VariantPosition};
+use shakmaty::{uci::Uci, variant::VariantPosition, CastlingMode, Position};
 use thiserror::Error;
 use tokio::{
     io::AsyncBufReadExt,
@@ -28,7 +28,7 @@ use tokio_util::io::StreamReader;
 use crate::{
     api::{
         AcquireRequest, AcquireResponse, AnalyseRequest, Engine, EngineId, InvalidWorkError, JobId,
-        ProviderSelector, Work,
+        MultiPv, ProviderSelector, Work,
     },
     hub::{Hub, IsValid},
     ongoing::Ongoing,
@@ -59,6 +59,41 @@ struct EmitPv {
     moves: Vec<Uci>,
     eval: Eval,
     depth: u32,
+}
+
+fn normalize_pv(pv: &[Uci], mut pos: VariantPosition) -> Vec<Uci> {
+    let mut moves = Vec::new();
+    for uci in pv {
+        let m = match uci.to_move(&pos) {
+            Ok(m) => m,
+            Err(_) => break,
+        };
+        moves.push(m.to_uci(CastlingMode::Chess960));
+        pos.play_unchecked(&m);
+    }
+    moves
+}
+
+impl EmitPv {
+    fn extract(uci: &UciOut, pos: &VariantPosition) -> Option<EmitPv> {
+        match *uci {
+            UciOut::Info {
+                depth: Some(depth),
+                multipv,
+                score: Some(ref score),
+                pv: Some(ref pv),
+                ..
+            } => {
+                let first_pv = multipv.map_or(true, |multipv| u32::from(multipv) == 1);
+                (!first_pv || (!score.lowerbound && !score.lowerbound)).then(|| EmitPv {
+                    moves: normalize_pv(pv, pos.clone()),
+                    eval: score.eval,
+                    depth,
+                })
+            }
+            _ => None,
+        }
+    }
 }
 
 #[serde_as]
