@@ -1,15 +1,15 @@
-use std::{io, net::SocketAddr, time::Duration};
+use std::{cmp::min, convert::Infallible, io, net::SocketAddr, time::Duration};
 
-use std::convert::Infallible;
-use axum_extra::json_lines::JsonLines;
-use std::cmp::min;
 use axum::{
     extract::{BodyStream, FromRef, Json, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     Router,
 };
-use axum_extra::routing::{RouterExt, TypedPath};
+use axum_extra::{
+    json_lines::JsonLines,
+    routing::{RouterExt, TypedPath},
+};
 use clap::Parser;
 use futures_util::stream::{StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
@@ -58,6 +58,7 @@ struct Opt {
 struct EmitPv {
     #[serde_as(as = "Vec<DisplayFromStr>")]
     moves: Vec<Uci>,
+    #[serde(flatten)]
     eval: Eval,
     depth: u32,
 }
@@ -65,25 +66,30 @@ struct EmitPv {
 impl EmitPv {
     fn extract(uci: &UciOut, pos: &VariantPosition) -> (MultiPv, Option<EmitPv>) {
         let multi_pv = match *uci {
-            UciOut::Info { multipv: Some(multipv), .. } => multipv,
+            UciOut::Info {
+                multipv: Some(multipv),
+                ..
+            } => multipv,
             _ => MultiPv::default(),
         };
 
-        (multi_pv, match *uci {
-            UciOut::Info {
-                depth: Some(depth),
-                score: Some(ref score),
-                pv: Some(ref pv),
-                ..
-            } => {
-                (multi_pv > MultiPv::default() || (!score.lowerbound && !score.lowerbound)).then(|| EmitPv {
-                    moves: normalize_pv(pv, pos.clone()),
-                    eval: score.eval,
-                    depth,
-                })
-            }
-            _ => None,
-        })
+        (
+            multi_pv,
+            match *uci {
+                UciOut::Info {
+                    depth: Some(depth),
+                    score: Some(ref score),
+                    pv: Some(ref pv),
+                    ..
+                } => (multi_pv > MultiPv::default() || (!score.lowerbound && !score.lowerbound))
+                    .then(|| EmitPv {
+                        moves: normalize_pv(pv, pos.clone()),
+                        eval: score.eval,
+                        depth,
+                    }),
+                _ => None,
+            },
+        )
     }
 }
 
@@ -114,20 +120,32 @@ impl Emit {
     pub fn update(&mut self, uci: &UciOut, pos: &VariantPosition) {
         let (multi_pv, emit_pv) = EmitPv::extract(&uci, pos);
         if multi_pv <= MultiPv::default() {
-            if let UciOut::Info { time: Some(time), .. } = *uci {
+            if let UciOut::Info {
+                time: Some(time), ..
+            } = *uci
+            {
                 self.time = time;
             }
-            if let UciOut::Info { depth: Some(depth), .. } = *uci {
+            if let UciOut::Info {
+                depth: Some(depth), ..
+            } = *uci
+            {
                 self.depth = depth;
             }
-            if let UciOut::Info { nodes: Some(nodes), .. } = *uci {
+            if let UciOut::Info {
+                nodes: Some(nodes), ..
+            } = *uci
+            {
                 self.nodes = nodes;
             }
             for pv in &mut self.pvs {
                 *pv = None;
             }
         } else {
-            if let UciOut::Info { depth: Some(depth), .. } = *uci {
+            if let UciOut::Info {
+                depth: Some(depth), ..
+            } = *uci
+            {
                 self.depth = min(self.depth, depth);
             }
         }
@@ -274,7 +292,10 @@ async fn analyse(
             pos,
         },
     );
-    Ok(JsonLines::new(ReceiverStream::new(rx).map(|item| Ok::<_, Infallible>(item))).into_response())
+    Ok(
+        JsonLines::new(ReceiverStream::new(rx).map(|item| Ok::<_, Infallible>(item)))
+            .into_response(),
+    )
 }
 
 #[derive(TypedPath, Deserialize)]

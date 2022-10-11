@@ -44,6 +44,7 @@ impl fmt::Display for Score {
 }
 
 #[derive(Serialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub enum Eval {
     Cp(i64),
     Mate(i32),
