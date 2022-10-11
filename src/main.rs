@@ -7,10 +7,12 @@ use axum::{
     Router,
 };
 use axum_extra::{
+    json_lines,
     json_lines::JsonLines,
     routing::{RouterExt, TypedPath},
 };
 use clap::Parser;
+use futures::Stream;
 use futures_util::stream::{StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr, DurationMilliSeconds};
@@ -276,7 +278,8 @@ async fn analyse(
     State(hub): State<&'static Hub<ProviderSelector, Job>>,
     State(repo): State<&'static Repo>,
     Json(req): Json<AnalyseRequest>,
-) -> Result<Response, Error> {
+) -> Result<JsonLines<impl Stream<Item = Result<Emit, Infallible>>, json_lines::AsResponse>, Error>
+{
     let engine = repo
         .find(id, req.client_secret)
         .await?
@@ -292,10 +295,9 @@ async fn analyse(
             pos,
         },
     );
-    Ok(
-        JsonLines::new(ReceiverStream::new(rx).map(|item| Ok::<_, Infallible>(item)))
-            .into_response(),
-    )
+    Ok(JsonLines::new(
+        ReceiverStream::new(rx).map(|item| Ok::<_, Infallible>(item)),
+    ))
 }
 
 #[derive(TypedPath, Deserialize)]
