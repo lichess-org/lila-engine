@@ -1,7 +1,9 @@
 use std::{io, net::SocketAddr, time::Duration};
 
+use std::convert::Infallible;
+use axum_extra::json_lines::JsonLines;
+use std::cmp::min;
 use axum::{
-    body::StreamBody,
     extract::{BodyStream, FromRef, Json, State},
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -9,7 +11,6 @@ use axum::{
 };
 use axum_extra::routing::{RouterExt, TypedPath};
 use clap::Parser;
-use futures::stream::Stream;
 use futures_util::stream::{StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr, DurationMilliSeconds};
@@ -61,6 +62,31 @@ struct EmitPv {
     depth: u32,
 }
 
+impl EmitPv {
+    fn extract(uci: &UciOut, pos: &VariantPosition) -> (MultiPv, Option<EmitPv>) {
+        let multi_pv = match *uci {
+            UciOut::Info { multipv: Some(multipv), .. } => multipv,
+            _ => MultiPv::default(),
+        };
+
+        (multi_pv, match *uci {
+            UciOut::Info {
+                depth: Some(depth),
+                score: Some(ref score),
+                pv: Some(ref pv),
+                ..
+            } => {
+                (multi_pv > MultiPv::default() || (!score.lowerbound && !score.lowerbound)).then(|| EmitPv {
+                    moves: normalize_pv(pv, pos.clone()),
+                    eval: score.eval,
+                    depth,
+                })
+            }
+            _ => None,
+        })
+    }
+}
+
 fn normalize_pv(pv: &[Uci], mut pos: VariantPosition) -> Vec<Uci> {
     let mut moves = Vec::new();
     for uci in pv {
@@ -74,41 +100,55 @@ fn normalize_pv(pv: &[Uci], mut pos: VariantPosition) -> Vec<Uci> {
     moves
 }
 
-impl EmitPv {
-    fn extract(uci: &UciOut, pos: &VariantPosition) -> Option<EmitPv> {
-        match *uci {
-            UciOut::Info {
-                depth: Some(depth),
-                multipv,
-                score: Some(ref score),
-                pv: Some(ref pv),
-                ..
-            } => {
-                let first_pv = multipv.map_or(true, |multipv| u32::from(multipv) == 1);
-                (!first_pv || (!score.lowerbound && !score.lowerbound)).then(|| EmitPv {
-                    moves: normalize_pv(pv, pos.clone()),
-                    eval: score.eval,
-                    depth,
-                })
+#[serde_as]
+#[derive(Clone, Debug, Default, Serialize)]
+struct Emit {
+    #[serde_as(as = "DurationMilliSeconds")]
+    time: Duration,
+    depth: u32,
+    nodes: u64,
+    pvs: Vec<Option<EmitPv>>,
+}
+
+impl Emit {
+    pub fn update(&mut self, uci: &UciOut, pos: &VariantPosition) {
+        let (multi_pv, emit_pv) = EmitPv::extract(&uci, pos);
+        if multi_pv <= MultiPv::default() {
+            if let UciOut::Info { time: Some(time), .. } = *uci {
+                self.time = time;
             }
-            _ => None,
+            if let UciOut::Info { depth: Some(depth), .. } = *uci {
+                self.depth = depth;
+            }
+            if let UciOut::Info { nodes: Some(nodes), .. } = *uci {
+                self.nodes = nodes;
+            }
+            for pv in &mut self.pvs {
+                *pv = None;
+            }
+        } else {
+            if let UciOut::Info { depth: Some(depth), .. } = *uci {
+                self.depth = min(self.depth, depth);
+            }
         }
+
+        let num_pv = usize::from(multi_pv);
+        if self.pvs.len() < num_pv {
+            self.pvs.resize(num_pv, None);
+        }
+
+        if emit_pv.is_some() {
+            self.pvs[num_pv - 1] = emit_pv;
+        }
+    }
+
+    pub fn should_emit(&self) -> bool {
+        !self.pvs.is_empty() && self.pvs.iter().all(|pv| pv.is_some())
     }
 }
 
-#[serde_as]
-#[derive(Clone, Debug, Serialize)]
-struct Emit {
-    depth: u32,
-    nodes: u64,
-    eval: Eval,
-    pvs: Vec<EmitPv>,
-    #[serde_as(as = "DurationMilliSeconds")]
-    time: Duration,
-}
-
 struct Job {
-    tx: Sender<UciOut>,
+    tx: Sender<Emit>,
     pos: VariantPosition,
     engine: Engine,
     work: Work,
@@ -218,7 +258,7 @@ async fn analyse(
     State(hub): State<&'static Hub<ProviderSelector, Job>>,
     State(repo): State<&'static Repo>,
     Json(req): Json<AnalyseRequest>,
-) -> Result<StreamBody<impl Stream<Item = Result<String, io::Error>>>, Error> {
+) -> Result<Response, Error> {
     let engine = repo
         .find(id, req.client_secret)
         .await?
@@ -234,13 +274,7 @@ async fn analyse(
             pos,
         },
     );
-    Ok(StreamBody::new(ReceiverStream::new(rx).map(|item| {
-        Ok({
-            let mut buf = item.to_string();
-            buf.push('\n');
-            buf
-        })
-    })))
+    Ok(JsonLines::new(ReceiverStream::new(rx).map(|item| Ok::<_, Infallible>(item))).into_response())
 }
 
 #[derive(TypedPath, Deserialize)]
@@ -292,13 +326,21 @@ async fn submit(
     let stream = body.map_err(|err| io::Error::new(io::ErrorKind::Other, err));
     let read = StreamReader::new(stream);
     let mut lines = read.lines();
+
+    let mut emit = Emit::default();
+
     while let Some(line) = select! {
         maybe_line = lines.next_line() => maybe_line?,
         _ = work.tx.closed() => None,
     } {
         if let Some(uci) = UciOut::from_line(&line)? {
-            let is_bestmove = matches!(uci, UciOut::Bestmove { .. });
-            if work.tx.send(uci).await.is_err() || is_bestmove {
+            emit.update(&uci, &work.pos);
+
+            if matches!(uci, UciOut::Bestmove { .. }) {
+                break;
+            }
+
+            if emit.should_emit() && work.tx.send(emit.clone()).await.is_err() {
                 break;
             }
         }

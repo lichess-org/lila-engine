@@ -32,8 +32,14 @@ impl fmt::Display for EngineId {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct MultiPv(u32);
+
+impl Default for MultiPv {
+    fn default() -> MultiPv {
+        MultiPv(1)
+    }
+}
 
 #[derive(Error, Debug)]
 #[error("supported range is 1 to 5")]
@@ -54,6 +60,12 @@ impl TryFrom<u32> for MultiPv {
 impl From<MultiPv> for u32 {
     fn from(MultiPv(n): MultiPv) -> u32 {
         n
+    }
+}
+
+impl From<MultiPv> for usize {
+    fn from(MultiPv(n): MultiPv) -> usize {
+        n as usize
     }
 }
 
