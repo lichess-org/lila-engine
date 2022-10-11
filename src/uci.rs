@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt, num::ParseIntError, time::Duration};
 
 use memchr::{memchr2, memchr2_iter};
+use serde::Serialize;
 use shakmaty::uci::{ParseUciError, Uci};
 use thiserror::Error;
 
@@ -42,7 +43,7 @@ impl fmt::Display for Score {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
 pub enum Eval {
     Cp(i64),
     Mate(i32),

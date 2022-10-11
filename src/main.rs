@@ -11,8 +11,9 @@ use axum_extra::routing::{RouterExt, TypedPath};
 use clap::Parser;
 use futures::stream::Stream;
 use futures_util::stream::{StreamExt, TryStreamExt};
-use serde::Deserialize;
-use shakmaty::variant::VariantPosition;
+use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr, DurationMilliSeconds};
+use shakmaty::{uci::Uci, variant::VariantPosition};
 use thiserror::Error;
 use tokio::{
     io::AsyncBufReadExt,
@@ -32,7 +33,7 @@ use crate::{
     hub::{Hub, IsValid},
     ongoing::Ongoing,
     repo::Repo,
-    uci::UciOut,
+    uci::{Eval, UciOut},
 };
 
 mod api;
@@ -49,6 +50,26 @@ struct Opt {
     /// Database.
     #[arg(long, default_value = "mongodb://localhost")]
     pub mongodb: String,
+}
+
+#[serde_as]
+#[derive(Clone, Debug, Serialize)]
+struct EmitPv {
+    #[serde_as(as = "Vec<DisplayFromStr>")]
+    moves: Vec<Uci>,
+    eval: Eval,
+    depth: u32,
+}
+
+#[serde_as]
+#[derive(Clone, Debug, Serialize)]
+struct Emit {
+    depth: u32,
+    nodes: u64,
+    eval: Eval,
+    pvs: Vec<EmitPv>,
+    #[serde_as(as = "DurationMilliSeconds")]
+    time: Duration,
 }
 
 struct Job {
