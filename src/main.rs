@@ -30,12 +30,12 @@ use tokio_util::io::StreamReader;
 
 use crate::{
     api::{
-        AcquireRequest, AcquireResponse, AnalyseRequest, Engine, EngineId, InvalidWorkError, JobId,
+        AcquireRequest, AcquireResponse, AnalyseRequest, EngineId, InvalidWorkError, JobId,
         MultiPv, ProviderSelector, Work,
     },
     hub::{Hub, IsValid},
     ongoing::Ongoing,
-    repo::Repo,
+    repo::{ExternalEngine, Repo},
     uci::{Eval, UciOut},
 };
 
@@ -170,7 +170,7 @@ impl Emit {
 struct Job {
     tx: Sender<Emit>,
     pos: VariantPosition,
-    engine: Engine,
+    engine: ExternalEngine,
     work: Work,
 }
 
@@ -290,7 +290,7 @@ async fn analyse(
         engine.provider_selector.clone(),
         Job {
             tx,
-            engine: Engine::from(engine),
+            engine,
             work,
             pos,
         },

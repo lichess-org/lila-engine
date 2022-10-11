@@ -258,21 +258,6 @@ impl Work {
     }
 }
 
-#[derive(Serialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct Engine {
-    pub id: EngineId,
-    pub name: String,
-    pub client_secret: ClientSecret,
-    pub user_id: UserId,
-    pub max_threads: NonZeroU32,
-    pub max_hash: NonZeroU32,
-    pub shallow_depth: u32,
-    pub deep_depth: u32,
-    pub variants: Vec<LichessVariant>,
-    pub provider_data: Option<String>,
-}
-
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct AcquireRequest {
@@ -284,5 +269,5 @@ pub struct AcquireRequest {
 pub struct AcquireResponse {
     pub id: JobId,
     pub work: Work,
-    pub engine: Engine,
+    pub engine: ExternalEngine,
 }

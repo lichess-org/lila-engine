@@ -1,15 +1,15 @@
 use std::num::NonZeroU32;
 
 use mongodb::{bson::doc, error::Error, options::ClientOptions, Client, Collection};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::task;
 
-use crate::api::{ClientSecret, Engine, EngineId, LichessVariant, ProviderSelector, UserId};
+use crate::api::{ClientSecret, EngineId, LichessVariant, ProviderSelector, UserId};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalEngine {
-    #[serde(rename = "_id")]
+    #[serde(alias = "_id")]
     id: EngineId,
     name: String,
     client_secret: ClientSecret,
@@ -19,25 +19,9 @@ pub struct ExternalEngine {
     shallow_depth: u32,
     deep_depth: u32,
     pub variants: Vec<LichessVariant>,
+    #[serde(skip_serializing)]
     pub provider_selector: ProviderSelector,
     provider_data: Option<String>,
-}
-
-impl From<ExternalEngine> for Engine {
-    fn from(engine: ExternalEngine) -> Engine {
-        Engine {
-            id: engine.id,
-            name: engine.name,
-            client_secret: engine.client_secret,
-            user_id: engine.user_id,
-            max_threads: engine.max_threads,
-            max_hash: engine.max_hash,
-            shallow_depth: engine.shallow_depth,
-            deep_depth: engine.deep_depth,
-            variants: engine.variants,
-            provider_data: engine.provider_data,
-        }
-    }
 }
 
 pub struct Repo {
