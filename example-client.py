@@ -27,8 +27,8 @@ def register_engine(args, http):
         "name": args.name,
         "maxThreads": 1,
         "maxHash": 16,
-        "shallowDepth": 25,
-        "deepDepth": 25,
+        "shallowDepth": args.shallow_depth,
+        "deepDepth": args.deep_depth,
         "providerSecret": secret,
     }
 
@@ -125,7 +125,7 @@ class Engine:
         self.isready()
 
         self.send(f"position fen {work['initialFen']} moves {' '.join(work['moves'])}")
-        self.send(f"go depth 25")
+        self.send(f"go depth {args.deep_depth if work['deep'] else args.shallow_depth}")
 
         while True:
             line = self.recv()
@@ -144,6 +144,8 @@ if __name__ == "__main__":
     parser.add_argument("--lichess", default="https://lichess.org", help="Defaults to https://lichess.org")
     parser.add_argument("--broker", default="https://engine.lichess.ovh", help="Defaults to https://engine.lichess.ovh")
     parser.add_argument("--token", default=os.environ.get("LICHESS_API_TOKEN"), help="API token with engine:read and engine:write scopes")
+    parser.add_argument("--deep-depth", default=99)
+    parser.add_argument("--shallow-depth", default=25)
 
     try:
         import argcomplete
