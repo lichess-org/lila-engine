@@ -6,6 +6,9 @@ use axum::{
     response::{IntoResponse, Response},
     Router,
 };
+use tower_http::trace::TraceLayer;
+use tower_http::cors::CorsLayer;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use axum_extra::{
     json_lines,
     json_lines::JsonLines,
@@ -233,15 +236,9 @@ impl IntoResponse for Error {
 
 #[tokio::main]
 async fn main() {
-    env_logger::Builder::from_env(
-        env_logger::Env::new()
-            .filter("LILA_ENGINE_LOG")
-            .write_style("LILA_ENGINE_LOG_STYLE"),
-    )
-    .format_timestamp(None)
-    .format_module_path(false)
-    .format_target(false)
-    .init();
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::EnvFilter::new(std::env::var("LILA_ENGINE_LOG").unwrap_or_else(|_| "lila_engine=debug,tower_http=debug".into())))
+        .with(tracing_subscriber::fmt::layer()).init();
 
     let opt = Opt::parse();
 
@@ -258,7 +255,8 @@ async fn main() {
         .typed_post(analyse)
         .typed_post(acquire)
         .typed_post(submit)
-        .layer(tower_http::cors::CorsLayer::permissive());
+        .layer(CorsLayer::permissive())
+        .layer(TraceLayer::new_for_http());
 
     axum::Server::bind(&opt.bind)
         .serve(app.into_make_service())

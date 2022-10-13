@@ -14,7 +14,7 @@ Usage
 -----
 
 ```
-LILA_ENGINE_LOG=debug cargo run
+LILA_ENGINE_LOG=lila_engine=debug,tower_http=debug cargo run
 ```
 
 License
