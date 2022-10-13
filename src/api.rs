@@ -14,13 +14,6 @@ use crate::model::{
     ClientSecret, Engine, JobId, LichessVariant, MultiPv, ProviderSecret, SessionId,
 };
 
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct AnalyseRequest {
-    pub client_secret: ClientSecret,
-    pub work: Work,
-}
-
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -91,6 +84,13 @@ impl Work {
             pos,
         ))
     }
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalyseRequest {
+    pub client_secret: ClientSecret,
+    pub work: Work,
 }
 
 #[derive(Deserialize, Debug)]
