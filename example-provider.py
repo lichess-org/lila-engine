@@ -10,12 +10,14 @@ import os
 import secrets
 import subprocess
 import multiprocessing
+import contextlib
+import time
 
 
 def ok(res):
     try:
         res.raise_for_status()
-    except requests.HTTPError:
+    except requests.exceptions.HTTPError:
         logging.exception("Response: %s", res.text)
     return res
 
@@ -55,22 +57,27 @@ def main(args):
     http.headers["Authorization"] = f"Bearer {args.token}"
     secret = register_engine(args, http)
 
+    backoff = 1
     while True:
-        res = ok(http.post(f"{args.broker}/api/external-engine/work", json={"providerSecret": secret}))
-        if res.status_code != 200:
+        try:
+            res = ok(http.post(f"{args.broker}/api/external-engine/work", json={"providerSecret": secret}))
+            if res.status_code != 200:
+                continue
+            job = res.json()
+        except requests.exceptions.RequestException as err:
+            logging.error("Error while trying to acquire work: %s", err)
+            time.sleep(backoff)
+            backoff = min(backoff * 1.5, 10)
             continue
+        else:
+            backoff = 1
 
-        job = res.json()
         try:
             logging.info("Handling job %s", job["id"])
-            analysis_stream = engine.analyse(job)
-            ok(http.post(f"{args.broker}/api/external-engine/work/{job['id']}", data=analysis_stream))
+            with engine.analyse(job) as analysis_stream:
+                ok(http.post(f"{args.broker}/api/external-engine/work/{job['id']}", data=analysis_stream))
         except requests.exceptions.ConnectionError:
-            logging.info("Connection closed")
-
-        engine.send("stop")
-        for _ in analysis_stream:
-            pass
+            logging.info("Connection closed while streaming analysis")
 
 
 class Engine:
@@ -120,32 +127,42 @@ class Engine:
     def setoption(self, name, value):
         self.send(f"setoption name {name} value {value}")
 
+    @contextlib.contextmanager
     def analyse(self, job):
-        work = job["work"]
+        def stream():
+            work = job["work"]
 
-        if work["sessionId"] != self.session:
-            self.session = work["sessionId"]
-            self.send("ucinewgame")
+            if work["sessionId"] != self.session:
+                self.session = work["sessionId"]
+                self.send("ucinewgame")
+                self.isready()
+
+            if self.threads != work["threads"]:
+                self.setoption("Threads", work["threads"])
+                self.threads = work["threads"]
+            if self.hash != work["hash"]:
+                self.setoption("Hash", work["hash"])
+                self.hash = work["hash"]
+            self.setoption("MultiPV", work["multiPv"])
             self.isready()
 
-        if self.threads != work["threads"]:
-            self.setoption("Threads", work["threads"])
-            self.threads = work["threads"]
-        if self.hash != work["hash"]:
-            self.setoption("Hash", work["hash"])
-            self.hash = work["hash"]
-        self.setoption("MultiPV", work["multiPv"])
-        self.isready()
+            self.send(f"position fen {work['initialFen']} moves {' '.join(work['moves'])}")
+            self.send(f"go depth {args.deep_depth if work['deep'] else args.shallow_depth}")
 
-        self.send(f"position fen {work['initialFen']} moves {' '.join(work['moves'])}")
-        self.send(f"go depth {args.deep_depth if work['deep'] else args.shallow_depth}")
+            while True:
+                line = self.recv()
+                yield (line + "\n").encode("utf-8")
 
-        while True:
-            line = self.recv()
-            yield (line + "\n").encode("utf-8")
+                if line.startswith("bestmove"):
+                    break
 
-            if line.startswith("bestmove"):
-                break
+        analysis = stream()
+        try:
+            yield analysis
+        finally:
+            self.send("stop")
+            for _ in analysis:
+                pass
 
 
 if __name__ == "__main__":
