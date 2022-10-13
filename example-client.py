@@ -8,6 +8,7 @@ import os
 import secrets
 import chess
 import subprocess
+import multiprocessing
 
 
 def ok(res):
@@ -25,8 +26,8 @@ def register_engine(args, http):
 
     registration = {
         "name": args.name,
-        "maxThreads": 1,
-        "maxHash": 16,
+        "maxThreads": multiprocessing.cpu_count(),
+        "maxHash": 512,
         "shallowDepth": args.shallow_depth,
         "deepDepth": args.deep_depth,
         "providerSecret": secret,
@@ -47,6 +48,7 @@ def register_engine(args, http):
 def main(args):
     engine = Engine(args)
     engine.uci()
+    engine.setoption("UCI_AnalyseMode", "true")
 
     http = requests.Session()
     http.headers["Authorization"] = f"Bearer {args.token}"
@@ -75,6 +77,8 @@ class Engine:
     def __init__(self, args):
         self.process = subprocess.Popen(args.engine, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, universal_newlines=True)
         self.session = None
+        self.hash = None
+        self.threads = None
 
     def send(self, command):
         logging.debug("%d << %s", self.process.pid, command)
@@ -113,6 +117,9 @@ class Engine:
             if line == "readyok":
                 break
 
+    def setoption(self, name, value):
+        self.send(f"setoption name {name} value {value}")
+
     def analyse(self, job):
         work = job["work"]
 
@@ -121,7 +128,13 @@ class Engine:
             self.send("ucinewgame")
             self.isready()
 
-        self.send(f"setoption name MultiPV value {work['multiPv']}")
+        if self.threads != work["threads"]:
+            self.setoption("Threads", work["threads"])
+            self.threads = work["threads"]
+        if self.hash != work["hash"]:
+            self.setoption("Hash", work["hash"])
+            self.hash = work["hash"]
+        self.setoption("MultiPV", work["multiPv"])
         self.isready()
 
         self.send(f"position fen {work['initialFen']} moves {' '.join(work['moves'])}")
