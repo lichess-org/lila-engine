@@ -113,6 +113,8 @@ enum Error {
     InvalidWork(#[from] InvalidWorkError),
     #[error("recv error: {0}")]
     RecvError(#[from] RecvError),
+    #[error("provider did not pick up work")]
+    ProviderTimeout,
 }
 
 impl IntoResponse for Error {
@@ -121,6 +123,7 @@ impl IntoResponse for Error {
             Error::MongoDb(_) | Error::RecvError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Error::Io(_) | Error::Protocol(_) | Error::InvalidWork(_) => StatusCode::BAD_REQUEST,
             Error::EngineNotFound | Error::WorkNotFound => StatusCode::NOT_FOUND,
+            Error::ProviderTimeout => StatusCode::SERVICE_UNAVAILABLE,
         };
         (status, self.to_string()).into_response()
     }
@@ -190,7 +193,9 @@ async fn analyse(
             pos,
         },
     );
-    let rx = rx.await?;
+    let rx = timeout(Duration::from_secs(15), rx)
+        .await
+        .map_err(|_: Elapsed| Error::ProviderTimeout)??;
     Ok(JsonLines::new(
         ReceiverStream::new(rx).map(|item| Ok::<_, Infallible>(item)),
     ))
