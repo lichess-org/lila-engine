@@ -1,14 +1,12 @@
 use std::{cmp::min, convert::Infallible, io, net::SocketAddr, time::Duration};
 
+use crate::model::Engine;
 use axum::{
     extract::{BodyStream, FromRef, Json, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     Router,
 };
-use tower_http::trace::TraceLayer;
-use tower_http::cors::CorsLayer;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use axum_extra::{
     json_lines,
     json_lines::JsonLines,
@@ -30,20 +28,25 @@ use tokio::{
 };
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::io::StreamReader;
+use tower_http::cors::CorsLayer;
+use tower_http::trace::TraceLayer;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::{
-    api::{
-        AcquireRequest, AcquireResponse, AnalyseRequest, EngineId, InvalidWorkError, JobId,
-        MultiPv, ProviderSelector, Work,
-    },
+    api::{AcquireRequest, AcquireResponse, AnalyseRequest, InvalidWorkError, Work},
     hub::{Hub, IsValid},
+    model::EngineId,
+    model::JobId,
+    model::MultiPv,
+    model::ProviderSelector,
     ongoing::Ongoing,
-    repo::{ExternalEngine, Repo},
+    repo::{Repo},
     uci::{Eval, UciOut},
 };
 
 mod api;
 mod hub;
+mod model;
 mod ongoing;
 mod repo;
 mod uci;
@@ -173,7 +176,7 @@ impl Emit {
 struct Job {
     tx: Sender<Emit>,
     pos: VariantPosition,
-    engine: ExternalEngine,
+    engine: Engine,
     work: Work,
 }
 
@@ -237,8 +240,12 @@ impl IntoResponse for Error {
 #[tokio::main]
 async fn main() {
     tracing_subscriber::registry()
-        .with(tracing_subscriber::EnvFilter::new(std::env::var("LILA_ENGINE_LOG").unwrap_or_else(|_| "lila_engine=debug,tower_http=debug".into())))
-        .with(tracing_subscriber::fmt::layer()).init();
+        .with(tracing_subscriber::EnvFilter::new(
+            std::env::var("LILA_ENGINE_LOG")
+                .unwrap_or_else(|_| "lila_engine=debug,tower_http=debug".into()),
+        ))
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
     let opt = Opt::parse();
 
@@ -278,14 +285,15 @@ async fn analyse(
     Json(req): Json<AnalyseRequest>,
 ) -> Result<JsonLines<impl Stream<Item = Result<Emit, Infallible>>, json_lines::AsResponse>, Error>
 {
-    let engine = repo
+    let (engine, provider_selector) = repo
         .find(id, req.client_secret)
         .await?
-        .ok_or(Error::EngineNotFound)?;
+        .ok_or(Error::EngineNotFound)?
+        .into_engine_and_selector();
     let (work, pos) = req.work.sanitize(&engine)?;
     let (tx, rx) = channel(1);
     hub.submit(
-        engine.provider_selector.clone(),
+        provider_selector,
         Job {
             tx,
             engine,

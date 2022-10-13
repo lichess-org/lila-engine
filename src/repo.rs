@@ -1,27 +1,33 @@
-use std::num::NonZeroU32;
-
+use crate::model::Engine;
 use mongodb::{bson::doc, error::Error, options::ClientOptions, Client, Collection};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tokio::task;
 
-use crate::api::{ClientSecret, EngineId, LichessVariant, ProviderSelector, UserId};
+use crate::model::ClientSecret;
+use crate::model::EngineConfig;
+use crate::model::EngineId;
+use crate::model::ProviderSelector;
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalEngine {
-    #[serde(alias = "_id")]
+    #[serde(rename = "_id")]
     id: EngineId,
-    name: String,
-    client_secret: ClientSecret,
-    user_id: UserId,
-    pub max_threads: NonZeroU32,
-    pub max_hash: NonZeroU32,
-    shallow_depth: u32,
-    deep_depth: u32,
-    pub variants: Vec<LichessVariant>,
-    #[serde(skip_serializing)]
-    pub provider_selector: ProviderSelector,
-    provider_data: Option<String>,
+    provider_selector: ProviderSelector,
+    #[serde(flatten)]
+    config: EngineConfig,
+}
+
+impl ExternalEngine {
+    pub fn into_engine_and_selector(self) -> (Engine, ProviderSelector) {
+        (
+            Engine {
+                id: self.id,
+                config: self.config,
+            },
+            self.provider_selector,
+        )
+    }
 }
 
 pub struct Repo {
@@ -52,7 +58,7 @@ impl Repo {
             self.coll
                 .find_one(doc! { "_id": id.0 }, None)
                 .await
-                .map(|engine| engine.filter(|e| e.client_secret == client_secret))
+                .map(|engine| engine.filter(|e| e.config.client_secret == client_secret))
         })
         .await
         .expect("join mongodb find")

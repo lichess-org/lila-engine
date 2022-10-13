@@ -5,7 +5,7 @@ use serde::Serialize;
 use shakmaty::uci::{ParseUciError, Uci};
 use thiserror::Error;
 
-use crate::api::{InvalidMultiPvError, MultiPv};
+use crate::model::{InvalidMultiPvError, MultiPv};
 
 #[derive(Error, Debug)]
 pub enum ProtocolError {
