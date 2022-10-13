@@ -7,6 +7,7 @@ import sys
 import os
 import secrets
 import chess
+import subprocess
 
 
 def ok(res):
@@ -44,9 +45,11 @@ def register_engine(args, http):
 
 
 def main(args):
+    engine = Engine(args)
+    engine.uci()
+
     http = requests.Session()
     http.headers["Authorization"] = f"Bearer {args.token}"
-
     secret = register_engine(args, http)
 
     while True:
@@ -56,11 +59,62 @@ def main(args):
             continue
 
         job = res.json()
-        ok(http.post(f"{args.broker}/api/external-engine/work/{job['id']}", data=analyse(job)))
+        try:
+            logging.info("Handling job %s", job["id"])
+            ok(http.post(f"{args.broker}/api/external-engine/work/{job['id']}", data=engine.analyse(job)))
+        except requests.exceptions.ConnectionError:
+            logging.info("Connection closed")
 
 
-def analyse(job):
-    yield b"info pv e2e4 depth 20 score cp 40"
+class Engine:
+    def __init__(self, args):
+        self.process = subprocess.Popen(args.engine, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, universal_newlines=True)
+
+    def send(self, command):
+        logging.debug("%d << %s", self.process.pid, command)
+        self.process.stdin.write(command + "\n")
+        self.process.stdin.flush()
+
+    def recv(self):
+        while True:
+            line = self.process.stdout.readline()
+            if line == "":
+                raise EOFError()
+
+            line = line.rstrip()
+            logging.debug("%d >> %s", self.process.pid, line)
+            if line:
+                return line
+
+    def recv_uci(self):
+        command_and_args = self.recv().split(None, 1)
+        if len(command_and_args) == 1:
+            return command_and_args[0], ""
+        else:
+            return command_and_args
+
+    def uci(self):
+        self.send("uci")
+        while True:
+            line, _ = self.recv_uci()
+            if line == "uciok":
+                break
+
+    def isready(self):
+        self.command("isready")
+        while True:
+            line, _ = self.recv_uci()
+            if line == "readyok":
+                break
+
+    def analyse(self, job):
+        self.send(f"go depth 25")
+        while True:
+            line = self.recv()
+            yield line.encode("utf-8")
+
+            if line.startswith("bestmove"):
+                break
 
 
 if __name__ == "__main__":
