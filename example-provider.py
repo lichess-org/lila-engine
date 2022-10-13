@@ -8,7 +8,6 @@ import requests
 import sys
 import os
 import secrets
-import chess
 import subprocess
 import multiprocessing
 
