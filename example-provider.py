@@ -27,8 +27,8 @@ def register_engine(args, http):
 
     registration = {
         "name": args.name,
-        "maxThreads": multiprocessing.cpu_count(),
-        "maxHash": 512,
+        "maxThreads": args.max_threads,
+        "maxHash": args.max_hash,
         "shallowDepth": args.shallow_depth,
         "deepDepth": args.deep_depth,
         "providerSecret": secret,
@@ -159,6 +159,8 @@ if __name__ == "__main__":
     parser.add_argument("--token", default=os.environ.get("LICHESS_API_TOKEN"), help="API token with engine:read and engine:write scopes")
     parser.add_argument("--deep-depth", default=99)
     parser.add_argument("--shallow-depth", default=25)
+    parser.add_argument("--max-threads", default=multiprocessing.cpu_count())
+    parser.add_argument("--max-hash", default=512)
 
     try:
         import argcomplete
