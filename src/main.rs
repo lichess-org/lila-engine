@@ -136,7 +136,7 @@ async fn main() {
             std::env::var("LILA_ENGINE_LOG")
                 .unwrap_or_else(|_| "lila_engine=debug,tower_http=debug".into()),
         ))
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer().without_time())
         .init();
 
     let opt = Opt::parse();
