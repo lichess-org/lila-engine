@@ -61,14 +61,20 @@ def main(args):
         job = res.json()
         try:
             logging.info("Handling job %s", job["id"])
-            ok(http.post(f"{args.broker}/api/external-engine/work/{job['id']}", data=engine.analyse(job)))
+            analysis_stream = engine.analyse(job)
+            ok(http.post(f"{args.broker}/api/external-engine/work/{job['id']}", data=analysis_stream))
         except requests.exceptions.ConnectionError:
             logging.info("Connection closed")
+
+        engine.send("stop")
+        for _ in analysis_stream:
+            pass
 
 
 class Engine:
     def __init__(self, args):
         self.process = subprocess.Popen(args.engine, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, universal_newlines=True)
+        self.session = None
 
     def send(self, command):
         logging.debug("%d << %s", self.process.pid, command)
@@ -101,7 +107,7 @@ class Engine:
                 break
 
     def isready(self):
-        self.command("isready")
+        self.send("isready")
         while True:
             line, _ = self.recv_uci()
             if line == "readyok":
@@ -109,13 +115,21 @@ class Engine:
 
     def analyse(self, job):
         work = job["work"]
+
+        if work["sessionId"] != self.session:
+            self.session = work["sessionId"]
+            self.send("ucinewgame")
+            self.isready()
+
         self.send(f"setoption name MultiPV value {work['multiPv']}")
-        self.readyok()
+        self.isready()
+
         self.send(f"position fen {work['initialFen']} moves {' '.join(work['moves'])}")
         self.send(f"go depth 25")
+
         while True:
             line = self.recv()
-            yield line.encode("utf-8")
+            yield (line + "\n").encode("utf-8")
 
             if line.startswith("bestmove"):
                 break
