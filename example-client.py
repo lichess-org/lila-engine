@@ -6,6 +6,7 @@ import requests
 import sys
 import os
 import secrets
+import chess
 
 
 def ok(res):
@@ -45,7 +46,21 @@ def register_engine(args, http):
 def main(args):
     http = requests.Session()
     http.headers["Authorization"] = f"Bearer {args.token}"
-    register_engine(args, http)
+
+    secret = register_engine(args, http)
+
+    while True:
+        logging.debug("Serving ...")
+        res = ok(http.post(f"{args.broker}/api/external-engine/work", json={"providerSecret": secret}))
+        if res.status_code != 200:
+            continue
+
+        job = res.json()
+        ok(http.post(f"{args.broker}/api/external-engine/work/{job['id']}", data=analyse(job)))
+
+
+def analyse(job):
+    yield b"info pv e2e4 depth 20 score cp 40"
 
 
 if __name__ == "__main__":
