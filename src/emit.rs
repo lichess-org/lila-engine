@@ -51,7 +51,7 @@ impl EmitPv {
 
 fn normalize_pv(pv: &[Uci], mut pos: VariantPosition) -> Vec<Uci> {
     let mut moves = Vec::new();
-    for uci in pv {
+    for uci in pv.iter().take(30) {
         let m = match uci.to_move(&pos) {
             Ok(m) => m,
             Err(_) => break,
