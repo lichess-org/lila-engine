@@ -2,7 +2,7 @@
 
 """External engine provider example for lichess.org"""
 
-impor argparse
+import argparse
 import logging
 import requests
 import sys
