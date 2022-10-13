@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{cmp::max, fmt};
 
 use thiserror::Error;
 
@@ -19,8 +19,8 @@ impl TryFrom<u32> for MultiPv {
     type Error = InvalidMultiPvError;
 
     fn try_from(n: u32) -> Result<MultiPv, InvalidMultiPvError> {
-        if 1 <= n && n <= 5 {
-            Ok(MultiPv(n))
+        if n <= 5 {
+            Ok(MultiPv(max(1, n)))
         } else {
             Err(InvalidMultiPvError)
         }
