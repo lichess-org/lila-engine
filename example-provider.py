@@ -151,10 +151,12 @@ class Engine:
 
             while True:
                 line = self.recv()
-                yield (line + "\n").encode("utf-8")
 
                 if line.startswith("bestmove"):
                     break
+
+                if "score" in line:
+                    yield (line + "\n").encode("utf-8")
 
         analysis = stream()
         try:
