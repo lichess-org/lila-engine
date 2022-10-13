@@ -1,6 +1,8 @@
+#!/usr/bin/env python
+
 """External engine provider example for lichess.org"""
 
-import argparse
+impor argparse
 import logging
 import requests
 import sys
