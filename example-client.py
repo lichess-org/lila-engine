@@ -108,6 +108,10 @@ class Engine:
                 break
 
     def analyse(self, job):
+        work = job["work"]
+        self.send(f"setoption name MultiPV value {work['multiPv']}")
+        self.readyok()
+        self.send(f"position fen {work['initialFen']} moves {' '.join(work['moves'])}")
         self.send(f"go depth 25")
         while True:
             line = self.recv()
