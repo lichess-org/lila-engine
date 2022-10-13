@@ -56,7 +56,6 @@ def main(args):
     secret = register_engine(args, http)
 
     while True:
-        logging.debug("Serving ...")
         res = ok(http.post(f"{args.broker}/api/external-engine/work", json={"providerSecret": secret}))
         if res.status_code != 200:
             continue
