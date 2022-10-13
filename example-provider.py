@@ -23,7 +23,7 @@ def ok(res):
 def register_engine(args, http):
     res = ok(http.get(f"{args.lichess}/api/external-engine"))
 
-    secret = secrets.token_urlsafe(32)
+    secret = args.provider_secret or secrets.token_urlsafe(32)
 
     registration = {
         "name": args.name,
@@ -157,6 +157,7 @@ if __name__ == "__main__":
     parser.add_argument("--lichess", default="https://lichess.org", help="Defaults to https://lichess.org")
     parser.add_argument("--broker", default="https://engine.lichess.ovh", help="Defaults to https://engine.lichess.ovh")
     parser.add_argument("--token", default=os.environ.get("LICHESS_API_TOKEN"), help="API token with engine:read and engine:write scopes")
+    parser.add_argument("--provider-secret", default=os.environ.get("PROVIDER_SECRET"))
     parser.add_argument("--deep-depth", default=99)
     parser.add_argument("--shallow-depth", default=25)
     parser.add_argument("--max-threads", default=multiprocessing.cpu_count())
