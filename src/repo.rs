@@ -1,12 +1,8 @@
-use crate::model::Engine;
 use mongodb::{bson::doc, error::Error, options::ClientOptions, Client, Collection};
 use serde::Deserialize;
 use tokio::task;
 
-use crate::model::ClientSecret;
-use crate::model::EngineConfig;
-use crate::model::EngineId;
-use crate::model::ProviderSelector;
+use crate::model::{ClientSecret, Engine, EngineConfig, EngineId, ProviderSelector};
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]

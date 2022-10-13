@@ -1,6 +1,5 @@
 use std::{cmp::min, convert::Infallible, io, net::SocketAddr, time::Duration};
 
-use crate::model::Engine;
 use axum::{
     extract::{BodyStream, FromRef, Json, State},
     http::StatusCode,
@@ -28,19 +27,15 @@ use tokio::{
 };
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::io::StreamReader;
-use tower_http::cors::CorsLayer;
-use tower_http::trace::TraceLayer;
+use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::{
     api::{AcquireRequest, AcquireResponse, AnalyseRequest, InvalidWorkError, Work},
     hub::{Hub, IsValid},
-    model::EngineId,
-    model::JobId,
-    model::MultiPv,
-    model::ProviderSelector,
+    model::{Engine, EngineId, JobId, MultiPv, ProviderSelector},
     ongoing::Ongoing,
-    repo::{Repo},
+    repo::Repo,
     uci::{Eval, UciOut},
 };
 

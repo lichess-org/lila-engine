@@ -1,7 +1,10 @@
-use rand::distributions::{Alphanumeric, DistString};
-use rand::thread_rng;
-use serde::{Deserialize, Serialize};
 use std::fmt;
+
+use rand::{
+    distributions::{Alphanumeric, DistString},
+    thread_rng,
+};
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct JobId(String);

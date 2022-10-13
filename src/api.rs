@@ -10,13 +10,9 @@ use shakmaty::{
 };
 use thiserror::Error;
 
-use crate::model::ClientSecret;
-use crate::model::Engine;
-use crate::model::JobId;
-use crate::model::LichessVariant;
-use crate::model::MultiPv;
-use crate::model::ProviderSecret;
-use crate::model::SessionId;
+use crate::model::{
+    ClientSecret, Engine, JobId, LichessVariant, MultiPv, ProviderSecret, SessionId,
+};
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]

@@ -1,6 +1,5 @@
 use serde::Deserialize;
-use sha2::Digest;
-use sha2::Sha256;
+use sha2::{Digest, Sha256};
 
 #[derive(Deserialize, Debug)]
 pub struct ProviderSecret(String);

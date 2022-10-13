@@ -1,10 +1,8 @@
-use serde::{Deserialize, Serialize};
-use std::fmt;
-use std::num::NonZeroU32;
+use std::{fmt, num::NonZeroU32};
 
-use crate::model::ClientSecret;
-use crate::model::LichessVariant;
-use crate::model::UserId;
+use serde::{Deserialize, Serialize};
+
+use crate::model::{ClientSecret, LichessVariant, UserId};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EngineId(pub String);
