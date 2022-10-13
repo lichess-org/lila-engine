@@ -20,7 +20,10 @@ use thiserror::Error;
 use tokio::{
     io::AsyncBufReadExt,
     select,
-    sync::mpsc::{channel, Sender},
+    sync::{
+        mpsc,
+        oneshot::{self, error::RecvError},
+    },
     task,
     time::{error::Elapsed, timeout},
 };
@@ -58,7 +61,7 @@ struct Opt {
 }
 
 struct Job {
-    tx: Sender<Emit>,
+    tx: oneshot::Sender<mpsc::Receiver<Emit>>,
     pos: VariantPosition,
     engine: Engine,
     work: Work,
@@ -108,12 +111,14 @@ enum Error {
     Protocol(#[from] uci::ProtocolError),
     #[error("invalid work: {0}")]
     InvalidWork(#[from] InvalidWorkError),
+    #[error("recv error: {0}")]
+    RecvError(#[from] RecvError),
 }
 
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         let status = match self {
-            Error::MongoDb(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::MongoDb(_) | Error::RecvError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Error::Io(_) | Error::Protocol(_) | Error::InvalidWork(_) => StatusCode::BAD_REQUEST,
             Error::EngineNotFound | Error::WorkNotFound => StatusCode::NOT_FOUND,
         };
@@ -175,7 +180,7 @@ async fn analyse(
         .ok_or(Error::EngineNotFound)?
         .into_engine_and_selector();
     let (work, pos) = req.work.sanitize(&engine)?;
-    let (tx, rx) = channel(1);
+    let (tx, rx) = oneshot::channel();
     hub.submit(
         provider_selector,
         Job {
@@ -185,6 +190,7 @@ async fn analyse(
             pos,
         },
     );
+    let rx = rx.await?;
     Ok(JsonLines::new(
         ReceiverStream::new(rx).map(|item| Ok::<_, Infallible>(item)),
     ))
@@ -236,6 +242,9 @@ async fn submit(
     body: BodyStream,
 ) -> Result<(), Error> {
     let work = ongoing.remove(&id).ok_or(Error::WorkNotFound)?;
+    let (tx, rx) = mpsc::channel(1);
+    let _: Result<(), _> = work.tx.send(rx);
+
     let stream = body.map_err(|err| io::Error::new(io::ErrorKind::Other, err));
     let read = StreamReader::new(stream);
     let mut lines = read.lines();
@@ -244,7 +253,7 @@ async fn submit(
 
     while let Some(line) = select! {
         maybe_line = lines.next_line() => maybe_line?,
-        _ = work.tx.closed() => None,
+        _ = tx.closed() => None,
     } {
         if let Some(uci) = UciOut::from_line(&line)? {
             emit.update(&uci, &work.pos);
@@ -253,7 +262,7 @@ async fn submit(
                 break;
             }
 
-            if emit.should_emit() && work.tx.send(emit.clone()).await.is_err() {
+            if emit.should_emit() && tx.send(emit.clone()).await.is_err() {
                 break;
             }
         }
