@@ -235,8 +235,8 @@ impl IntoResponse for Error {
 async fn main() {
     env_logger::Builder::from_env(
         env_logger::Env::new()
-            .filter("ENGINE_LOG")
-            .write_style("ENGINE_LOG_STYLE"),
+            .filter("LILA_ENGINE_LOG")
+            .write_style("LILA_ENGINE_LOG_STYLE"),
     )
     .format_timestamp(None)
     .format_module_path(false)
