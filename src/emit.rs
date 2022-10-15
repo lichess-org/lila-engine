@@ -37,7 +37,7 @@ impl EmitPv {
                     score: Some(ref score),
                     pv: Some(ref pv),
                     ..
-                } => (multi_pv > MultiPv::default() || (!score.lowerbound && !score.lowerbound))
+                } => (multi_pv > MultiPv::default() || (!score.lowerbound && !score.upperbound))
                     .then(|| EmitPv {
                         moves: normalize_pv(pv, pos.clone()),
                         eval: pos.turn().fold_wb(score.eval, -score.eval),
