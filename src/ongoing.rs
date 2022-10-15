@@ -17,20 +17,22 @@ pub struct Ongoing<S, R> {
     shards: [Mutex<HashMap<S, R>>; NUM_SHARDS],
 }
 
-impl<S: Hash + Eq, R> Ongoing<S, R> {
-    pub fn new() -> Ongoing<S, R> {
+impl<S: Hash + Eq, R> Default for Ongoing<S, R> {
+    fn default() -> Ongoing<S, R> {
         Ongoing {
             random_state: RandomState::new(),
             shards: array::from_fn(|_| Mutex::new(HashMap::new())),
         }
     }
+}
 
+impl<S: Hash + Eq, R> Ongoing<S, R> {
     pub fn add(&self, selector: S, item: R) {
         self.shard(&selector).lock().unwrap().insert(selector, item);
     }
 
     pub fn remove(&self, selector: &S) -> Option<R> {
-        self.shard(&selector).lock().unwrap().remove(selector)
+        self.shard(selector).lock().unwrap().remove(selector)
     }
 
     fn shard(&self, selector: &S) -> &Mutex<HashMap<S, R>> {

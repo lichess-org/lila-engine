@@ -71,6 +71,7 @@ impl fmt::Display for Eval {
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum UciOut {
     Bestmove {
         m: Option<Uci>,

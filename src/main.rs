@@ -143,8 +143,8 @@ async fn main() {
 
     let state = AppState {
         repo: Box::leak(Box::new(Repo::new(&opt.mongodb).await)),
-        hub: Box::leak(Box::new(Hub::new())),
-        ongoing: Box::leak(Box::new(Ongoing::new())),
+        hub: Box::leak(Box::new(Hub::default())),
+        ongoing: Box::leak(Box::new(Ongoing::default())),
     };
 
     task::spawn(state.hub.garbage_collect());
@@ -197,7 +197,7 @@ async fn analyse(
         .await
         .map_err(|_: Elapsed| Error::ProviderTimeout)??;
     Ok(JsonLines::new(
-        ReceiverStream::new(rx).map(|item| Ok::<_, Infallible>(item)),
+        ReceiverStream::new(rx).map(Ok::<_, Infallible>),
     ))
 }
 

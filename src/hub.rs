@@ -21,14 +21,16 @@ pub struct Hub<S, R> {
     shards: [Mutex<Shard<S, R>>; NUM_SHARDS],
 }
 
-impl<S: Hash + Eq + Clone, R> Hub<S, R> {
-    pub fn new() -> Hub<S, R> {
+impl<S: Hash + Eq, R> Default for Hub<S, R> {
+    fn default() -> Hub<S, R> {
         Hub {
             random_state: RandomState::new(),
             shards: array::from_fn(|_| Mutex::new(Shard::new())),
         }
     }
+}
 
+impl<S: Hash + Eq + Clone, R> Hub<S, R> {
     pub fn submit(&self, selector: S, data: R) {
         let shard = self.shard(&selector);
         shard.lock().unwrap().submit(selector, data);

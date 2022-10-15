@@ -74,7 +74,7 @@ pub struct Emit {
 
 impl Emit {
     pub fn update(&mut self, uci: &UciOut, pos: &VariantPosition) {
-        let (multi_pv, emit_pv) = EmitPv::extract(&uci, pos);
+        let (multi_pv, emit_pv) = EmitPv::extract(uci, pos);
         if multi_pv <= MultiPv::default() {
             if let UciOut::Info {
                 time: Some(time), ..
@@ -97,13 +97,11 @@ impl Emit {
             for pv in &mut self.pvs {
                 *pv = None;
             }
-        } else {
-            if let UciOut::Info {
-                depth: Some(depth), ..
-            } = *uci
-            {
-                self.depth = min(self.depth, depth);
-            }
+        } else if let UciOut::Info {
+            depth: Some(depth), ..
+        } = *uci
+        {
+            self.depth = min(self.depth, depth);
         }
 
         let num_pv = usize::from(multi_pv);
