@@ -154,7 +154,7 @@ async fn main() {
         .typed_post(analyse)
         .typed_post(acquire)
         .typed_post(submit)
-        .layer(CorsLayer::permissive())
+        .layer(CorsLayer::permissive().max_age(Duration::from_secs(60 * 60 * 24)))
         .layer(TraceLayer::new_for_http());
 
     axum::Server::bind(&opt.bind)
