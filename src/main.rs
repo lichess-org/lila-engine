@@ -258,7 +258,10 @@ async fn submit(
 
     while let Some(line) = select! {
         maybe_line = lines.next_line() => maybe_line?,
-        _ = tx.closed() => None,
+        _ = tx.closed() => {
+            log::info!("requester gone away");
+            None
+        },
     } {
         if let Some(uci) = UciOut::from_line(&line)? {
             emit.update(&uci, &work.pos);
@@ -268,6 +271,7 @@ async fn submit(
             }
 
             if emit.should_emit() && tx.send(emit.clone()).await.is_err() {
+                log::info!("requester suddenly gone away");
                 break;
             }
         }
