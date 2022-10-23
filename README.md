@@ -5,9 +5,9 @@ Broker for communication between external engine providers and clients.
 
 Endpoints:
 
-* [`https://engine.lichess.ovh/api/external-engine/{id}/analyse`](https://lichess.org/api#tag/External-engine-(draft)/operation/apiExternalEngineAnalyse)
-* [`https://engine.lichess.ovh/api/external-engine/work`](https://lichess.org/api#tag/External-engine-(draft)/operation/apiExternalEngineAcquire)
-* [`https://engine.lichess.ovh/api/external-engine/work/{id}`](https://lichess.org/api#tag/External-engine-(draft)/operation/apiExternalEngineSubmit)
+* [`https://engine.lichess.ovh/api/external-engine/{id}/analyse`](https://lichess.org/api#tag/External-engine/operation/apiExternalEngineAnalyse)
+* [`https://engine.lichess.ovh/api/external-engine/work`](https://lichess.org/api#tag/External-engine/operation/apiExternalEngineAcquire)
+* [`https://engine.lichess.ovh/api/external-engine/work/{id}`](https://lichess.org/api#tag/External-engine/operation/apiExternalEngineSubmit)
 
 Providers
 ---------
