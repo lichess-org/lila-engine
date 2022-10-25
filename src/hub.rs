@@ -21,7 +21,7 @@ pub struct Hub<S, R> {
     shards: [Mutex<Shard<S, R>>; NUM_SHARDS],
 }
 
-impl<S: Hash + Eq, R> Default for Hub<S, R> {
+impl<S: Hash + Eq, R: IsValid> Default for Hub<S, R> {
     fn default() -> Hub<S, R> {
         Hub {
             random_state: RandomState::new(),
@@ -30,7 +30,7 @@ impl<S: Hash + Eq, R> Default for Hub<S, R> {
     }
 }
 
-impl<S: Hash + Eq + Clone, R> Hub<S, R> {
+impl<S: Hash + Eq + Clone, R: IsValid> Hub<S, R> {
     pub fn submit(&self, selector: S, data: R) {
         let shard = self.shard(&selector);
         shard.lock().unwrap().submit(selector, data);
@@ -69,7 +69,7 @@ struct Shard<S, R> {
     map: HashMap<S, Queue<R>>,
 }
 
-impl<S: Eq + Hash, R> Shard<S, R> {
+impl<S: Eq + Hash, R: IsValid> Shard<S, R> {
     fn new() -> Shard<S, R> {
         Shard {
             map: HashMap::new(),
@@ -86,10 +86,13 @@ impl<S: Eq + Hash, R> Shard<S, R> {
 
     fn acquire(&mut self, selector: S) -> Result<R, Arc<Notify>> {
         let entry = self.map.entry(selector).or_default();
-        entry
-            .inner
-            .pop_front()
-            .ok_or_else(|| Arc::clone(&entry.signal))
+        loop {
+            match entry.inner.pop_front() {
+                Some(item) if item.is_valid() => return Ok(item),
+                Some(_) => continue,
+                None => return Err(Arc::clone(&entry.signal)),
+            }
+        }
     }
 }
 
