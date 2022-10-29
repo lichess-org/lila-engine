@@ -53,14 +53,19 @@ mod uci;
 
 #[derive(Parser)]
 struct Opt {
-    /// Binding address.
-    #[arg(long, default_value = "127.0.0.1:9666")]
-    pub bind: SocketAddr,
+    /// Binding address for plain HTTP.
+    #[arg(long)]
+    pub bind: Option<SocketAddr>,
+    /// Binding address for HTTPS.
+    #[arg(long)]
+    pub bind_tls: Option<SocketAddr>,
     /// Database.
     #[arg(long, default_value = "mongodb://localhost")]
     pub mongodb: String,
+    /// Certificate file for HTTPS server.
     #[arg(long, value_parser = PathBufValueParser::new())]
     pub cert_pem: Option<PathBuf>,
+    /// Private key for HTTPS server.
     #[arg(long, value_parser = PathBufValueParser::new())]
     pub key_pem: Option<PathBuf>,
 }
@@ -162,22 +167,29 @@ async fn main() {
         .layer(CorsLayer::permissive().max_age(Duration::from_secs(60 * 60 * 24)))
         .layer(TraceLayer::new_for_http());
 
-    match (opt.cert_pem, opt.key_pem) {
-        (Some(cert_pem), Some(key_pem)) => {
-            let tls_config = RustlsConfig::from_pem_file(cert_pem, key_pem)
+    if let Some(bind) = opt.bind_tls {
+        let tls_app = app.clone();
+        task::spawn(async move {
+            axum_server::bind_rustls(
+                bind,
+                RustlsConfig::from_pem_file(
+                    opt.cert_pem.expect("cert pem"),
+                    opt.key_pem.expect("key pem"),
+                )
                 .await
-                .expect("tls config");
-            axum_server::bind_rustls(opt.bind, tls_config)
-                .serve(app.into_make_service())
-                .await
-                .expect("bind tls");
-        }
-        _ => {
-            axum::Server::bind(&opt.bind)
-                .serve(app.into_make_service())
-                .await
-                .expect("bind");
-        }
+                .expect("tls config"),
+            )
+            .serve(tls_app.into_make_service())
+            .await
+            .expect("bind tls");
+        });
+    }
+
+    if let Some(bind) = opt.bind {
+        axum::Server::bind(&bind)
+            .serve(app.into_make_service())
+            .await
+            .expect("bind");
     }
 }
 
