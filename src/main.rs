@@ -1,4 +1,4 @@
-use std::{convert::Infallible, io, net::SocketAddr, time::Duration};
+use std::{convert::Infallible, io, net::SocketAddr, path::PathBuf, time::Duration};
 
 use axum::{
     extract::{BodyStream, FromRef, Json, State},
@@ -11,7 +11,8 @@ use axum_extra::{
     json_lines::JsonLines,
     routing::{RouterExt, TypedPath},
 };
-use clap::Parser;
+use axum_server::tls_rustls::RustlsConfig;
+use clap::{builder::PathBufValueParser, Parser};
 use futures::Stream;
 use futures_util::stream::{StreamExt, TryStreamExt};
 use serde::Deserialize;
@@ -58,6 +59,10 @@ struct Opt {
     /// Database.
     #[arg(long, default_value = "mongodb://localhost")]
     pub mongodb: String,
+    #[arg(long, value_parser = PathBufValueParser::new())]
+    pub cert_pem: Option<PathBuf>,
+    #[arg(long, value_parser = PathBufValueParser::new())]
+    pub key_pem: Option<PathBuf>,
 }
 
 struct Job {
@@ -157,10 +162,23 @@ async fn main() {
         .layer(CorsLayer::permissive().max_age(Duration::from_secs(60 * 60 * 24)))
         .layer(TraceLayer::new_for_http());
 
-    axum::Server::bind(&opt.bind)
-        .serve(app.into_make_service())
-        .await
-        .expect("bind");
+    match (opt.cert_pem, opt.key_pem) {
+        (Some(cert_pem), Some(key_pem)) => {
+            let tls_config = RustlsConfig::from_pem_file(cert_pem, key_pem)
+                .await
+                .expect("tls config");
+            axum_server::bind_rustls(opt.bind, tls_config)
+                .serve(app.into_make_service())
+                .await
+                .expect("bind tls");
+        }
+        _ => {
+            axum::Server::bind(&opt.bind)
+                .serve(app.into_make_service())
+                .await
+                .expect("bind");
+        }
+    }
 }
 
 #[derive(TypedPath, Deserialize)]
