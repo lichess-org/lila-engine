@@ -1,7 +1,7 @@
 use std::{cmp::min, num::NonZeroU32};
 
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr, TryFromInto};
+use serde_with::{serde_as, DisplayFromStr, FromInto, TryFromInto};
 use shakmaty::{
     fen::Fen,
     uci::{IllegalUciError, Uci},
@@ -10,9 +10,7 @@ use shakmaty::{
 };
 use thiserror::Error;
 
-use crate::model::{
-    ClientSecret, Engine, JobId, LichessVariant, MultiPv, ProviderSecret, SessionId,
-};
+use crate::model::{ClientSecret, Engine, JobId, MultiPv, ProviderSecret, SessionId, UciVariant};
 
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -25,7 +23,8 @@ pub struct Work {
     infinite: bool,
     #[serde_as(as = "TryFromInto<u32>")]
     multi_pv: MultiPv,
-    variant: LichessVariant,
+    #[serde_as(as = "FromInto<UciVariant>")]
+    variant: Variant,
     #[serde_as(as = "DisplayFromStr")]
     initial_fen: Fen,
     #[serde_as(as = "Vec<DisplayFromStr>")]
@@ -46,19 +45,18 @@ pub enum InvalidWorkError {
 
 impl Work {
     pub fn sanitize(self, engine: &Engine) -> Result<(Work, VariantPosition), InvalidWorkError> {
-        let variant = self.variant.into();
         if !engine
             .config
             .variants
             .iter()
             .copied()
-            .any(|v| Variant::from(v) == variant)
+            .any(|v| v == self.variant)
         {
             return Err(InvalidWorkError::UnsupportedVariant);
         }
 
         let mut pos = VariantPosition::from_setup(
-            variant,
+            self.variant,
             self.initial_fen.into_setup(),
             CastlingMode::Chess960,
         )?;
@@ -81,7 +79,7 @@ impl Work {
                 hash: min(self.hash, engine.config.max_hash),
                 infinite: self.infinite,
                 multi_pv: self.multi_pv,
-                variant: variant.into(),
+                variant: self.variant,
                 initial_fen,
                 moves,
             },

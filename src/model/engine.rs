@@ -1,8 +1,10 @@
 use std::{fmt, num::NonZeroU32};
 
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, FromInto};
+use shakmaty::variant::Variant;
 
-use crate::model::{ClientSecret, LichessVariant, UserId};
+use crate::model::{ClientSecret, UciVariant, UserId};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EngineId(pub String);
@@ -20,6 +22,7 @@ pub struct Engine {
     pub config: EngineConfig,
 }
 
+#[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EngineConfig {
@@ -30,6 +33,7 @@ pub struct EngineConfig {
     pub max_hash: NonZeroU32,
     #[serde(alias = "shallowDepth")]
     pub default_depth: u32,
-    pub variants: Vec<LichessVariant>,
+    #[serde_as(as = "Vec<FromInto<UciVariant>>")]
+    pub variants: Vec<Variant>,
     pub provider_data: Option<String>,
 }

@@ -1,58 +1,57 @@
 use serde::{Deserialize, Serialize};
 use shakmaty::variant::Variant;
 
-#[derive(Debug, Deserialize, Serialize, Copy, Clone)]
-pub enum LichessVariant {
-    #[serde(alias = "antichess")]
+#[derive(Deserialize, Serialize)]
+pub enum UciVariant {
+    #[serde(
+        rename = "chess",
+        alias = "standard",
+        alias = "chess960",
+        alias = "fromPosition"
+    )]
+    Chess,
+    #[serde(rename = "antichess")]
     Antichess,
-    #[serde(alias = "atomic")]
+    #[serde(rename = "atomic")]
     Atomic,
-    #[serde(alias = "chess960")]
-    Chess960,
-    #[serde(alias = "crazyhouse")]
+    #[serde(rename = "crazyhouse")]
     Crazyhouse,
-    #[serde(alias = "fromPosition", alias = "From Position")]
-    FromPosition,
-    #[serde(alias = "horde")]
+    #[serde(rename = "horde")]
     Horde,
-    #[serde(alias = "kingOfTheHill", alias = "King of the Hill")]
+    #[serde(rename = "kingofthehill", alias = "kingOfTheHill")]
     KingOfTheHill,
-    #[serde(alias = "racingKings", alias = "Racing Kings")]
+    #[serde(rename = "racingkings", alias = "racingKings")]
     RacingKings,
-    #[serde(alias = "chess", alias = "standard")]
-    Standard,
-    #[serde(alias = "threeCheck", alias = "Three-check")]
+    #[serde(rename = "3check", alias = "threeCheck")]
     ThreeCheck,
 }
 
-impl From<LichessVariant> for Variant {
-    fn from(variant: LichessVariant) -> Variant {
-        match variant {
-            LichessVariant::Antichess => Variant::Antichess,
-            LichessVariant::Atomic => Variant::Atomic,
-            LichessVariant::Chess960 | LichessVariant::FromPosition | LichessVariant::Standard => {
-                Variant::Chess
-            }
-            LichessVariant::Crazyhouse => Variant::Crazyhouse,
-            LichessVariant::Horde => Variant::Horde,
-            LichessVariant::KingOfTheHill => Variant::KingOfTheHill,
-            LichessVariant::RacingKings => Variant::RacingKings,
-            LichessVariant::ThreeCheck => Variant::ThreeCheck,
+impl From<UciVariant> for Variant {
+    fn from(value: UciVariant) -> Variant {
+        match value {
+            UciVariant::Chess => Variant::Chess,
+            UciVariant::Antichess => Variant::Antichess,
+            UciVariant::Atomic => Variant::Atomic,
+            UciVariant::Crazyhouse => Variant::Crazyhouse,
+            UciVariant::Horde => Variant::Horde,
+            UciVariant::KingOfTheHill => Variant::KingOfTheHill,
+            UciVariant::RacingKings => Variant::RacingKings,
+            UciVariant::ThreeCheck => Variant::ThreeCheck,
         }
     }
 }
 
-impl From<Variant> for LichessVariant {
-    fn from(variant: Variant) -> LichessVariant {
-        match variant {
-            Variant::Chess => LichessVariant::Standard,
-            Variant::Antichess => LichessVariant::Antichess,
-            Variant::Atomic => LichessVariant::Atomic,
-            Variant::Crazyhouse => LichessVariant::Crazyhouse,
-            Variant::Horde => LichessVariant::Horde,
-            Variant::KingOfTheHill => LichessVariant::KingOfTheHill,
-            Variant::RacingKings => LichessVariant::RacingKings,
-            Variant::ThreeCheck => LichessVariant::ThreeCheck,
+impl From<Variant> for UciVariant {
+    fn from(value: Variant) -> UciVariant {
+        match value {
+            Variant::Chess => UciVariant::Chess,
+            Variant::Antichess => UciVariant::Antichess,
+            Variant::Atomic => UciVariant::Atomic,
+            Variant::Crazyhouse => UciVariant::Crazyhouse,
+            Variant::Horde => UciVariant::Horde,
+            Variant::KingOfTheHill => UciVariant::KingOfTheHill,
+            Variant::RacingKings => UciVariant::RacingKings,
+            Variant::ThreeCheck => UciVariant::ThreeCheck,
         }
     }
 }
