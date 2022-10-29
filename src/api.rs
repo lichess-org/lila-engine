@@ -21,7 +21,8 @@ pub struct Work {
     session_id: SessionId,
     threads: NonZeroU32,
     hash: NonZeroU32,
-    deep: bool,
+    #[serde(alias = "deep")]
+    infinite: bool,
     #[serde_as(as = "TryFromInto<u32>")]
     multi_pv: MultiPv,
     variant: LichessVariant,
@@ -55,12 +56,14 @@ impl Work {
         {
             return Err(InvalidWorkError::UnsupportedVariant);
         }
+
         let mut pos = VariantPosition::from_setup(
             variant,
             self.initial_fen.into_setup(),
             CastlingMode::Chess960,
         )?;
         let initial_fen = Fen(pos.clone().into_setup(EnPassantMode::Legal));
+
         if self.moves.len() > 600 {
             return Err(InvalidWorkError::TooManyMoves);
         }
@@ -70,12 +73,13 @@ impl Work {
             moves.push(m.to_uci(CastlingMode::Chess960));
             pos.play_unchecked(&m);
         }
+
         Ok((
             Work {
                 session_id: self.session_id,
                 threads: min(self.threads, engine.config.max_threads),
                 hash: min(self.hash, engine.config.max_hash),
-                deep: self.deep,
+                infinite: self.infinite,
                 multi_pv: self.multi_pv,
                 variant: variant.into(),
                 initial_fen,
