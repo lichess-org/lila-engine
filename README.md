@@ -19,7 +19,7 @@ Usage
 -----
 
 ```
-LILA_ENGINE_LOG=lila_engine=debug,tower_http=debug cargo run
+LILA_ENGINE_LOG=lila_engine=debug,tower_http=debug cargo run -- --bind 127.0.0.1:9663
 ```
 
 License
