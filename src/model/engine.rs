@@ -31,8 +31,7 @@ pub struct EngineConfig {
     pub user_id: UserId,
     pub max_threads: NonZeroU32,
     pub max_hash: NonZeroU32,
-    #[serde(default, alias = "shallowDepth")] // alias not worked with flatten
-    pub default_depth: Option<u32>,
+    pub default_depth: u32,
     #[serde_as(as = "Vec<FromInto<UciVariant>>")]
     pub variants: Vec<Variant>,
     pub provider_data: Option<String>,
