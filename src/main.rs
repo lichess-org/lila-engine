@@ -83,6 +83,7 @@ impl IsValid for Job {
     }
 }
 
+#[derive(Clone)]
 struct AppState {
     repo: &'static Repo,
     hub: &'static Hub<ProviderSelector, Job>,
@@ -160,12 +161,13 @@ async fn main() {
     task::spawn(state.hub.garbage_collect());
     task::spawn(state.ongoing.garbage_collect());
 
-    let app = Router::with_state(state)
+    let app = Router::new()
         .typed_post(analyse)
         .typed_post(acquire)
         .typed_post(submit)
         .layer(CorsLayer::permissive().max_age(Duration::from_secs(60 * 60 * 24)))
-        .layer(TraceLayer::new_for_http());
+        .layer(TraceLayer::new_for_http())
+        .with_state(state);
 
     if let Some(bind) = opt.bind_tls {
         let tls_app = app.clone();
