@@ -27,7 +27,7 @@ serde = { version = "1.0.144", features = ["derive"] }
 serde_with = "2.0.1"
 sha2 = "0.10.6"
 shakmaty = { version = "0.22.0", features = ["variant"] }
-thiserror = "1.0.36"
+thiserror = "1.0.38"
 tokio = { version = "1.21.0", features = ["full"] }
 tokio-stream = "0.1.10"
 tokio-util = "0.7.4"
