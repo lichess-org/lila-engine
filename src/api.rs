@@ -19,8 +19,8 @@ pub struct Work {
     session_id: SessionId,
     threads: NonZeroU32,
     hash: NonZeroU32,
-    #[serde(alias = "deep")]
-    infinite: bool,
+    #[serde_as(as = "TryFromInto<u32>")]
+    movetime: u32,
     #[serde_as(as = "TryFromInto<u32>")]
     multi_pv: MultiPv,
     #[serde_as(as = "FromInto<UciVariant>")]
@@ -77,7 +77,7 @@ impl Work {
                 session_id: self.session_id,
                 threads: min(self.threads, engine.config.max_threads),
                 hash: min(self.hash, engine.config.max_hash),
-                infinite: self.infinite,
+                movetime: self.movetime,
                 multi_pv: self.multi_pv,
                 variant: self.variant,
                 initial_fen,
