@@ -19,6 +19,7 @@ pub struct Work {
     session_id: SessionId,
     threads: NonZeroU32,
     hash: NonZeroU32,
+    infinite: bool, // backcompat
     #[serde_as(as = "TryFromInto<u32>")]
     movetime: u32,
     #[serde_as(as = "TryFromInto<u32>")]
