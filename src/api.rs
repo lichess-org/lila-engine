@@ -78,6 +78,7 @@ impl Work {
                 threads: min(self.threads, engine.config.max_threads),
                 hash: min(self.hash, engine.config.max_hash),
                 movetime: self.movetime,
+                infinite: true, // backcompat
                 multi_pv: self.multi_pv,
                 variant: self.variant,
                 initial_fen,
