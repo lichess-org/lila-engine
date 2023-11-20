@@ -78,8 +78,8 @@ impl Work {
                 session_id: self.session_id,
                 threads: min(self.threads, engine.config.max_threads),
                 hash: min(self.hash, engine.config.max_hash),
-                movetime: self.movetime,
                 infinite: true, // backcompat
+                movetime: self.movetime,
                 multi_pv: self.multi_pv,
                 variant: self.variant,
                 initial_fen,
