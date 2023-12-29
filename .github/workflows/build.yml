@@ -13,8 +13,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-unknown-linux-musl
+      - run: cargo test
       - run: cargo build --release --target x86_64-unknown-linux-musl
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: lila-engine
           path: target/x86_64-unknown-linux-musl/release/lila-engine
