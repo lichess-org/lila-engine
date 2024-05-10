@@ -12,6 +12,14 @@ use thiserror::Error;
 
 use crate::model::{ClientSecret, Engine, JobId, MultiPv, ProviderSecret, SessionId, UciVariant};
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum Search {
+    Movetime(u32),
+    Depth(u32),
+    Nodes(u64)
+}
+
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -19,9 +27,8 @@ pub struct Work {
     session_id: SessionId,
     threads: NonZeroU32,
     hash: NonZeroU32,
-    infinite: bool, // backcompat
-    #[serde_as(as = "TryFromInto<u32>")]
-    movetime: u32,
+    #[serde(flatten)]
+    search: Search,
     #[serde_as(as = "TryFromInto<u32>")]
     multi_pv: MultiPv,
     #[serde_as(as = "FromInto<UciVariant>")]
@@ -78,8 +85,7 @@ impl Work {
                 session_id: self.session_id,
                 threads: min(self.threads, engine.config.max_threads),
                 hash: min(self.hash, engine.config.max_hash),
-                infinite: self.infinite, // backcompat
-                movetime: self.movetime,
+                search: self.search,
                 multi_pv: self.multi_pv,
                 variant: self.variant,
                 initial_fen,
