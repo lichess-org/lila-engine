@@ -16,7 +16,7 @@ axum-macros = "0.3.0"
 axum-server = { version = "0.4.2", features = ["tls-rustls"] }
 clap = { version = "4.1.8", features = ["derive", "deprecated"] }
 env_logger = "0.10.0"
-futures = "0.3.24"
+futures = "0.3.26"
 futures-util = "0.3.24"
 hex = "0.4.3"
 log = "0.4.17"
