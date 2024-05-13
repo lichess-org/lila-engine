@@ -14,4 +14,4 @@ scp ./target/x86_64-unknown-linux-musl/release/lila-engine "root@$1.lichess.ovh"
 
 # Restart both services
 ssh "root@$1.lichess.ovh" systemctl restart lila-engine
-ssh "root@$1.lichess.ovh" systemctl restart lila-engine-tls
+# ssh "root@$1.lichess.ovh" systemctl restart lila-engine-tls
