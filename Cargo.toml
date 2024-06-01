@@ -24,7 +24,7 @@ memchr = "2.5.0"
 mongodb = { version = "2.3.0", features = ["tokio-runtime"] }
 rand = "0.8.5"
 serde = { version = "1.0.144", features = ["derive"] }
-serde_with = "2.2.0"
+serde_with = "3.8.1"
 sha2 = "0.10.6"
 shakmaty = { version = "0.23.0", features = ["variant"] }
 thiserror = "1.0.36"
