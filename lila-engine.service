@@ -1,0 +1,15 @@
+[Unit]
+Description=lila-engine
+After=network.target
+After=sys-subsystem-net-devices-eth1.device
+Requires=sys-subsystem-net-devices-eth1.device
+
+[Service]
+Environment=LILA_ENGINE_LOG=lila_engine=debug,tower_http=debug
+ExecStart=/usr/local/bin/lila-engine --bind 127.0.0.1:9666 --mongodb mongodb://172.16.0.50:27017,172.16.0.51:27017,172.16.0.52:27017/?appName=lila-engine
+LimitNOFILE=131072
+PrivateDevices=true
+ProtectSystem=strict
+CapabilityBoundingSet=
+NoNewPrivileges=true
+Restart=always

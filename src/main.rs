@@ -1,7 +1,8 @@
 use std::{convert::Infallible, io, net::SocketAddr, path::PathBuf, time::Duration};
 
 use axum::{
-    extract::{BodyStream, FromRef, Json, State},
+    body::Body,
+    extract::{FromRef, Json, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     Router,
@@ -11,15 +12,16 @@ use axum_extra::{
     json_lines::JsonLines,
     routing::{RouterExt, TypedPath},
 };
-use axum_server::tls_rustls::RustlsConfig;
 use clap::{builder::PathBufValueParser, Parser};
 use futures::Stream;
 use futures_util::stream::{StreamExt, TryStreamExt};
+use listenfd::ListenFd;
 use serde::Deserialize;
 use shakmaty::variant::VariantPosition;
 use thiserror::Error;
 use tokio::{
     io::AsyncBufReadExt,
+    net::TcpListener,
     select,
     sync::{
         mpsc,
@@ -54,11 +56,8 @@ mod uci;
 #[derive(Parser)]
 struct Opt {
     /// Binding address for plain HTTP.
-    #[arg(long)]
-    pub bind: Option<SocketAddr>,
-    /// Binding address for HTTPS.
-    #[arg(long)]
-    pub bind_tls: Option<SocketAddr>,
+    #[arg(long, default_value = "127.0.0.1:9666")]
+    pub bind: SocketAddr,
     /// Database.
     #[arg(long, default_value = "mongodb://localhost")]
     pub mongodb: String,
@@ -169,34 +168,22 @@ async fn main() {
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
-    if let Some(bind) = opt.bind_tls {
-        let tls_app = app.clone();
-        task::spawn(async move {
-            axum_server::bind_rustls(
-                bind,
-                RustlsConfig::from_pem_file(
-                    opt.cert_pem.expect("cert pem"),
-                    opt.key_pem.expect("key pem"),
-                )
-                .await
-                .expect("tls config"),
-            )
-            .serve(tls_app.into_make_service())
-            .await
-            .expect("bind tls");
-        });
-    }
+    let listener = match ListenFd::from_env()
+        .take_tcp_listener(0)
+        .expect("tcp listener")
+    {
+        Some(std_listener) => {
+            std_listener.set_nonblocking(true).expect("set nonblocking");
+            TcpListener::from_std(std_listener).expect("listener")
+        }
+        None => TcpListener::bind(&opt.bind).await.expect("bind"),
+    };
 
-    if let Some(bind) = opt.bind {
-        axum::Server::bind(&bind)
-            .serve(app.into_make_service())
-            .await
-            .expect("bind");
-    }
+    axum::serve(listener, app).await.expect("serve");
 }
 
 #[derive(TypedPath, Deserialize)]
-#[typed_path("/api/external-engine/:id/analyse")]
+#[typed_path("/api/external-engine/{id}/analyse")]
 struct AnalysePath {
     id: EngineId,
 }
@@ -267,7 +254,7 @@ async fn acquire(
 }
 
 #[derive(TypedPath, Deserialize)]
-#[typed_path("/api/external-engine/work/:id")]
+#[typed_path("/api/external-engine/work/{id}")]
 struct SubmitPath {
     id: JobId,
 }
@@ -276,13 +263,15 @@ struct SubmitPath {
 async fn submit(
     SubmitPath { id }: SubmitPath,
     State(ongoing): State<&'static Ongoing<JobId, Job>>,
-    body: BodyStream,
+    body: Body,
 ) -> Result<(), Error> {
     let work = ongoing.remove(&id).ok_or(Error::WorkNotFound)?;
     let (tx, rx) = mpsc::channel(1);
     let _: Result<(), _> = work.tx.send(rx);
 
-    let stream = body.map_err(|err| io::Error::new(io::ErrorKind::Other, err));
+    let stream = body
+        .into_data_stream()
+        .map_err(|err| io::Error::new(io::ErrorKind::Other, err));
     let read = StreamReader::new(stream);
     let mut lines = read.lines();
 

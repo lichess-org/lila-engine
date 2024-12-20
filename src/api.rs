@@ -17,7 +17,7 @@ use crate::model::{ClientSecret, Engine, JobId, MultiPv, ProviderSecret, Session
 pub enum Search {
     Movetime(u32),
     Depth(u32),
-    Nodes(u64)
+    Nodes(u64),
 }
 
 #[serde_as]
