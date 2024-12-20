@@ -19,6 +19,7 @@ use listenfd::ListenFd;
 use serde::Deserialize;
 use shakmaty::variant::VariantPosition;
 use thiserror::Error;
+use tikv_jemallocator::Jemalloc;
 use tokio::{
     io::AsyncBufReadExt,
     net::TcpListener,
@@ -52,6 +53,9 @@ mod model;
 mod ongoing;
 mod repo;
 mod uci;
+
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
 
 #[derive(Parser)]
 struct Opt {
