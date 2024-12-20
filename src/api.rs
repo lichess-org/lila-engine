@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr, FromInto, TryFromInto};
 use shakmaty::{
     fen::Fen,
-    uci::{IllegalUciError, Uci},
+    uci::{IllegalUciMoveError, UciMove},
     variant::{Variant, VariantPosition},
     CastlingMode, EnPassantMode, Position as _, PositionError,
 };
@@ -36,15 +36,15 @@ pub struct Work {
     #[serde_as(as = "DisplayFromStr")]
     initial_fen: Fen,
     #[serde_as(as = "Vec<DisplayFromStr>")]
-    moves: Vec<Uci>,
+    moves: Vec<UciMove>,
 }
 
 #[derive(Error, Debug)]
 pub enum InvalidWorkError {
     #[error("illegal initial position: {0}")]
     Position(#[from] PositionError<VariantPosition>),
-    #[error("illegal uci: {0}")]
-    IllegalUci(#[from] IllegalUciError),
+    #[error("illegal uci move: {0}")]
+    IllegalUciMove(#[from] IllegalUciMoveError),
     #[error("too many moves")]
     TooManyMoves,
     #[error("unsupported variant")]

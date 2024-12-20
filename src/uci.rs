@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt, num::ParseIntError, ops::Neg, time::Duratio
 
 use memchr::{memchr2, memchr2_iter};
 use serde::Serialize;
-use shakmaty::uci::{ParseUciError, Uci};
+use shakmaty::uci::{ParseUciMoveError, UciMove};
 use thiserror::Error;
 
 use crate::model::{InvalidMultiPvError, MultiPv};
@@ -16,7 +16,7 @@ pub enum ProtocolError {
     #[error("unexpected end of line")]
     UnexpectedEndOfLine,
     #[error("invalid move: {0}")]
-    InvalidMove(#[from] ParseUciError),
+    InvalidMove(#[from] ParseUciMoveError),
     #[error("invalid integer: {0}")]
     InvalidInteger(#[from] ParseIntError),
     #[error("invalid multipv: {0}")]
@@ -74,8 +74,8 @@ impl fmt::Display for Eval {
 #[allow(clippy::large_enum_variant)]
 pub enum UciOut {
     Bestmove {
-        m: Option<Uci>,
-        ponder: Option<Uci>,
+        m: Option<UciMove>,
+        ponder: Option<UciMove>,
     },
     Info {
         multipv: Option<MultiPv>,
@@ -84,16 +84,16 @@ pub enum UciOut {
         time: Option<Duration>,
         nodes: Option<u64>,
         score: Option<Score>,
-        currmove: Option<Uci>,
+        currmove: Option<UciMove>,
         currmovenumber: Option<u32>,
         hashfull: Option<u32>,
         nps: Option<u64>,
         tbhits: Option<u64>,
         sbhits: Option<u64>,
         cpuload: Option<u32>,
-        refutation: HashMap<Uci, Vec<Uci>>,
-        currline: HashMap<u32, Vec<Uci>>,
-        pv: Option<Vec<Uci>>,
+        refutation: HashMap<UciMove, Vec<UciMove>>,
+        currline: HashMap<u32, Vec<UciMove>>,
+        pv: Option<Vec<UciMove>>,
         string: Option<String>,
     },
 }
@@ -239,7 +239,7 @@ impl<'a> Parser<'a> {
         head
     }
 
-    fn parse_moves(&mut self) -> Vec<Uci> {
+    fn parse_moves(&mut self) -> Vec<UciMove> {
         let mut moves = Vec::new();
         while let Some(m) = self.peek() {
             match m.parse() {

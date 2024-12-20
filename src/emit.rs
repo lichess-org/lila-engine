@@ -2,7 +2,7 @@ use std::{cmp::min, time::Duration};
 
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr, DurationMilliSeconds};
-use shakmaty::{uci::Uci, variant::VariantPosition, CastlingMode, Position};
+use shakmaty::{uci::UciMove, variant::VariantPosition, CastlingMode, Position};
 
 use crate::{
     model::MultiPv,
@@ -13,7 +13,7 @@ use crate::{
 #[derive(Clone, Debug, Serialize)]
 struct EmitPv {
     #[serde_as(as = "Vec<DisplayFromStr>")]
-    moves: Vec<Uci>,
+    moves: Vec<UciMove>,
     #[serde(flatten)]
     eval: Eval,
     depth: u32,
@@ -49,7 +49,7 @@ impl EmitPv {
     }
 }
 
-fn normalize_pv(pv: &[Uci], mut pos: VariantPosition) -> Vec<Uci> {
+fn normalize_pv(pv: &[UciMove], mut pos: VariantPosition) -> Vec<UciMove> {
     let mut moves = Vec::new();
     for uci in pv.iter().take(30) {
         let m = match uci.to_move(&pos) {

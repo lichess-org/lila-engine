@@ -52,7 +52,7 @@ impl Repo {
         // MongoDB driver does not support cancellation.
         task::spawn(async move {
             self.coll
-                .find_one(doc! { "_id": id.0 }, None)
+                .find_one(doc! { "_id": id.0 })
                 .await
                 .map(|engine| engine.filter(|e| e.config.client_secret == client_secret))
         })

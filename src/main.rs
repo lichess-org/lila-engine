@@ -121,8 +121,8 @@ enum Error {
     Protocol(#[from] uci::ProtocolError),
     #[error("invalid work: {0}")]
     InvalidWork(#[from] InvalidWorkError),
-    #[error("recv error: {0}")]
-    RecvError(#[from] RecvError),
+    #[error("recv: {0}")]
+    Recv(#[from] RecvError),
     #[error("provider did not pick up work")]
     ProviderTimeout,
 }
@@ -130,7 +130,7 @@ enum Error {
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         let status = match self {
-            Error::MongoDb(_) | Error::RecvError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::MongoDb(_) | Error::Recv(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Error::Io(_) | Error::Protocol(_) | Error::InvalidWork(_) => StatusCode::BAD_REQUEST,
             Error::EngineNotFound | Error::WorkNotFound => StatusCode::NOT_FOUND,
             Error::ProviderTimeout => StatusCode::SERVICE_UNAVAILABLE,

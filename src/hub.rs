@@ -1,7 +1,7 @@
 use std::{
     array,
     collections::{hash_map::RandomState, HashMap, VecDeque},
-    hash::{BuildHasher, Hash, Hasher},
+    hash::{BuildHasher, Hash},
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -48,9 +48,7 @@ impl<S: Hash + Eq + Clone, R: IsValid> Hub<S, R> {
     }
 
     fn shard(&self, selector: &S) -> &Mutex<Shard<S, R>> {
-        let mut hasher = self.random_state.build_hasher();
-        selector.hash(&mut hasher);
-        &self.shards[hasher.finish() as usize % NUM_SHARDS]
+        &self.shards[self.random_state.hash_one(selector) as usize % NUM_SHARDS]
     }
 }
 

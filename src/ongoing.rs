@@ -1,7 +1,7 @@
 use std::{
     array,
     collections::{hash_map::RandomState, HashMap},
-    hash::{BuildHasher, Hash, Hasher},
+    hash::{BuildHasher, Hash},
     sync::Mutex,
     time::Duration,
 };
@@ -36,9 +36,7 @@ impl<S: Hash + Eq, R> Ongoing<S, R> {
     }
 
     fn shard(&self, selector: &S) -> &Mutex<HashMap<S, R>> {
-        let mut hasher = self.random_state.build_hasher();
-        selector.hash(&mut hasher);
-        &self.shards[hasher.finish() as usize % NUM_SHARDS]
+        &self.shards[self.random_state.hash_one(selector) as usize % NUM_SHARDS]
     }
 }
 
