@@ -2,7 +2,7 @@
 Description=lila-engine socket
 
 [Socket]
-ListenStream=127.0.0.1:9666
+ListenStream=/run/lila-engine.socket
 
 [Install]
 WantedBy=sockets.target

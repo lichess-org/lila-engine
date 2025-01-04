@@ -22,7 +22,7 @@ use thiserror::Error;
 use tikv_jemallocator::Jemalloc;
 use tokio::{
     io::AsyncBufReadExt,
-    net::TcpListener,
+    net::{TcpListener, UnixListener},
     select,
     sync::{
         mpsc,
@@ -172,18 +172,19 @@ async fn main() {
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
-    let listener = match ListenFd::from_env()
-        .take_tcp_listener(0)
-        .expect("tcp listener")
-    {
-        Some(std_listener) => {
-            std_listener.set_nonblocking(true).expect("set nonblocking");
-            TcpListener::from_std(std_listener).expect("listener")
-        }
-        None => TcpListener::bind(&opt.bind).await.expect("bind"),
-    };
-
-    axum::serve(listener, app).await.expect("serve");
+    let mut fds = ListenFd::from_env();
+    if let Ok(Some(uds)) = fds.take_unix_listener(0) {
+        uds.set_nonblocking(true).expect("set nonblocking");
+        let listener = UnixListener::from_std(uds).expect("listener");
+        axum::serve(listener, app).await.expect("serve");
+    } else if let Ok(Some(tcp)) = fds.take_tcp_listener(0) {
+        tcp.set_nonblocking(true).expect("set nonblocking");
+        let listener = TcpListener::from_std(tcp).expect("listener");
+        axum::serve(listener, app).await.expect("serve");
+    } else {
+        let listener = TcpListener::bind(&opt.bind).await.expect("bind");
+        axum::serve(listener, app).await.expect("serve");
+    }
 }
 
 #[derive(TypedPath, Deserialize)]

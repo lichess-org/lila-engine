@@ -9,9 +9,9 @@ keywords = ["chess", "lichess"]
 edition = "2021"
 
 [dependencies]
-axum = "0.8.0-rc.1"
-axum-extra = { version = "0.10.0-rc.1", features = ["typed-routing", "json-lines"] }
-axum-macros = "0.5.0-rc.1"
+axum = "0.8"
+axum-extra = { version = "0.10", features = ["typed-routing", "json-lines"] }
+axum-macros = "0.5"
 clap = { version = "4", features = ["derive", "deprecated"] }
 env_logger = "0.11"
 futures = "0.3"
