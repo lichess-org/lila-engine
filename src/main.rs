@@ -60,16 +60,16 @@ static GLOBAL: Jemalloc = Jemalloc;
 #[derive(Parser)]
 struct Opt {
     /// Binding address for plain HTTP.
-    #[arg(long, default_value = "127.0.0.1:9666")]
+    #[arg(long, default_value = "127.0.0.1:9666", env = "LILA_ENGINE_BIND")]
     pub bind: SocketAddr,
     /// Database.
-    #[arg(long, default_value = "mongodb://localhost")]
+    #[arg(long, default_value = "mongodb://localhost", env = "LILA_ENGINE_MONGODB")]
     pub mongodb: String,
     /// Certificate file for HTTPS server.
-    #[arg(long, value_parser = PathBufValueParser::new())]
+    #[arg(long, value_parser = PathBufValueParser::new(), env = "LILA_ENGINE_CERT_PEM")]
     pub cert_pem: Option<PathBuf>,
     /// Private key for HTTPS server.
-    #[arg(long, value_parser = PathBufValueParser::new())]
+    #[arg(long, value_parser = PathBufValueParser::new(), env = "LILA_ENGINE_KEY_PEM")]
     pub key_pem: Option<PathBuf>,
 }
 
