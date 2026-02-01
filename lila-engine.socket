@@ -1,8 +1,0 @@
-[Unit]
-Description=lila-engine socket
-
-[Socket]
-ListenStream=/run/lila-engine.socket
-
-[Install]
-WantedBy=sockets.target
