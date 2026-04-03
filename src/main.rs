@@ -276,7 +276,7 @@ async fn submit(
 
     let stream = body
         .into_data_stream()
-        .map_err(|err| io::Error::new(io::ErrorKind::Other, err));
+        .map_err(io::Error::other);
     let read = StreamReader::new(stream);
     let mut lines = read.lines();
 

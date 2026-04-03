@@ -42,13 +42,19 @@ pub struct Work {
 #[derive(Error, Debug)]
 pub enum InvalidWorkError {
     #[error("illegal initial position: {0}")]
-    Position(#[from] PositionError<VariantPosition>),
+    Position(Box<PositionError<VariantPosition>>),
     #[error("illegal uci move: {0}")]
     IllegalUciMove(#[from] IllegalUciMoveError),
     #[error("too many moves")]
     TooManyMoves,
     #[error("unsupported variant")]
     UnsupportedVariant,
+}
+
+impl From<PositionError<VariantPosition>> for InvalidWorkError {
+    fn from(err: PositionError<VariantPosition>) -> Self {
+        InvalidWorkError::Position(Box::new(err))
+    }
 }
 
 impl Work {
