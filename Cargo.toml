@@ -21,10 +21,10 @@ listenfd = "1"
 log = "0.4"
 memchr = "2"
 mongodb = "3"
-rand = "0.8"
+rand = "0.9"
 serde = { version = "1", features = ["derive"] }
 serde_with = "3"
-sha2 = "0.10"
+sha2 = "0.11"
 shakmaty = { version = "0.27", features = ["variant"] }
 thiserror = "2"
 tikv-jemallocator = { version = "0.6", features = ["unprefixed_malloc_on_supported_platforms"] }
