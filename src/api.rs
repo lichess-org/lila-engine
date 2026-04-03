@@ -68,7 +68,7 @@ impl Work {
             self.initial_fen.into_setup(),
             CastlingMode::Chess960,
         )?;
-        let initial_fen = Fen(pos.clone().into_setup(EnPassantMode::Legal));
+        let initial_fen = Fen::from_position(&pos, EnPassantMode::Legal);
 
         if self.moves.len() > 600 {
             return Err(InvalidWorkError::TooManyMoves);
@@ -77,7 +77,7 @@ impl Work {
         for uci in self.moves {
             let m = uci.to_move(&pos)?;
             moves.push(m.to_uci(CastlingMode::Chess960));
-            pos.play_unchecked(&m);
+            pos.play_unchecked(m);
         }
 
         Ok((

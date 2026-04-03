@@ -1,8 +1,8 @@
 use std::fmt;
 
 use rand::{
-    distributions::{Alphanumeric, DistString},
-    thread_rng,
+    distr::{Alphanumeric, SampleString},
+    rng,
 };
 use serde::{Deserialize, Serialize};
 
@@ -17,6 +17,6 @@ impl fmt::Display for JobId {
 
 impl JobId {
     pub fn random() -> JobId {
-        JobId(Alphanumeric.sample_string(&mut thread_rng(), 16))
+        JobId(Alphanumeric.sample_string(&mut rng(), 16))
     }
 }

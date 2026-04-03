@@ -57,7 +57,7 @@ fn normalize_pv(pv: &[UciMove], mut pos: VariantPosition) -> Vec<UciMove> {
             Err(_) => break,
         };
         moves.push(m.to_uci(CastlingMode::Chess960));
-        pos.play_unchecked(&m);
+        pos.play_unchecked(m);
     }
     moves
 }
