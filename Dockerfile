@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM rust:1-trixie AS chef
+FROM rust:1.95-trixie AS chef
 RUN cargo install cargo-chef --locked
 WORKDIR /app
 

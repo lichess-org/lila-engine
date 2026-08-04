@@ -7,6 +7,7 @@ license = "AGPL-3.0-or-later"
 categories = ["games"]
 keywords = ["chess", "lichess"]
 edition = "2021"
+rust-version = "1.95"
 
 [dependencies]
 axum = "0.8"
