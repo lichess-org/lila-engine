@@ -16,7 +16,7 @@ use clap::{builder::PathBufValueParser, Parser};
 use futures::Stream;
 use futures_util::stream::{StreamExt, TryStreamExt};
 use listenfd::ListenFd;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use shakmaty::variant::VariantPosition;
 use thiserror::Error;
 use tikv_jemallocator::Jemalloc;
@@ -74,10 +74,17 @@ struct Opt {
 }
 
 struct Job {
-    tx: oneshot::Sender<mpsc::Receiver<Emit>>,
+    tx: oneshot::Sender<mpsc::Receiver<AnalyseResponse>>,
     pos: VariantPosition,
     engine: Engine,
     work: Work,
+}
+
+#[derive(Serialize)]
+#[serde(untagged)]
+enum AnalyseResponse {
+    Emit(Emit),
+    Keepalive { keepalive: bool },
 }
 
 impl IsValid for Job {
@@ -199,7 +206,10 @@ async fn analyse(
     State(hub): State<&'static Hub<ProviderSelector, Job>>,
     State(repo): State<&'static Repo>,
     Json(req): Json<AnalyseRequest>,
-) -> Result<JsonLines<impl Stream<Item = Result<Emit, Infallible>>, json_lines::AsResponse>, Error>
+) -> Result<
+    JsonLines<impl Stream<Item = Result<AnalyseResponse, Infallible>>, json_lines::AsResponse>,
+    Error,
+>
 {
     let (engine, provider_selector) = repo
         .find(id, req.client_secret)
@@ -274,9 +284,7 @@ async fn submit(
     let (tx, rx) = mpsc::channel(1);
     let _: Result<(), _> = work.tx.send(rx);
 
-    let stream = body
-        .into_data_stream()
-        .map_err(io::Error::other);
+    let stream = body.into_data_stream().map_err(io::Error::other);
     let read = StreamReader::new(stream);
     let mut lines = read.lines();
 
@@ -289,6 +297,14 @@ async fn submit(
             None
         },
     } {
+        if line == r#"{"keepalive":true}"# {
+            if tx.send(AnalyseResponse::Keepalive { keepalive: true }).await.is_err() {
+                log::info!("requester suddenly gone away");
+                break;
+            }
+            continue;
+        }
+
         if let Some(uci) = UciOut::from_line(&line)? {
             emit.update(&uci, &work.pos);
 
@@ -296,7 +312,7 @@ async fn submit(
                 break;
             }
 
-            if emit.should_emit() && tx.send(emit.clone()).await.is_err() {
+            if emit.should_emit() && tx.send(AnalyseResponse::Emit(emit.clone())).await.is_err() {
                 log::info!("requester suddenly gone away");
                 break;
             }
