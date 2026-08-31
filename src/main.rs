@@ -282,25 +282,38 @@ async fn submit(
 
     let mut emit = Emit::default();
 
-    while let Some(line) = select! {
-        maybe_line = lines.next_line() => maybe_line?,
-        _ = tx.closed() => {
-            log::info!("requester gone away");
-            None
-        },
-    } {
-        if let Some(uci) = UciOut::from_line(&line)? {
-            emit.update(&uci, &work.pos);
-
-            if matches!(uci, UciOut::Bestmove { .. }) {
-                break;
+    let terminal: Result<Option<UciOut>, Error> = loop {
+        let line = select! {
+            maybe_line = lines.next_line() => match maybe_line {
+                Ok(Some(line)) => line,
+                Ok(None) => break Ok(None),
+                Err(err) => break Err(Error::Io(err)),
+            },
+            _ = tx.closed() => {
+                log::info!("requester gone away");
+                return Ok(());
             }
+        };
+        match UciOut::from_line(&line) {
+            Ok(Some(uci)) => {
+                if matches!(uci, UciOut::Bestmove { .. }) {
+                    break Ok(Some(uci));
+                }
+                emit.update(&uci, &work.pos);
 
-            if emit.should_emit() && tx.send(emit.clone()).await.is_err() {
-                log::info!("requester suddenly gone away");
-                break;
+                if emit.should_emit() && tx.send(emit.clone()).await.is_err() {
+                    log::info!("requester suddenly gone away");
+                    return Ok(());
+                }
             }
+            Ok(None) => {}
+            Err(err) => break Err(Error::Protocol(err)),
         }
+    };
+
+    emit.finish(terminal.as_ref().ok().and_then(Option::as_ref));
+    if tx.send(emit).await.is_err() {
+        log::info!("requester suddenly gone away");
     }
-    Ok(())
+    terminal.map(drop)
 }

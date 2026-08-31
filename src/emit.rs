@@ -70,6 +70,10 @@ pub struct Emit {
     depth: u32,
     nodes: u64,
     pvs: Vec<Option<EmitPv>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    bestmove: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ponder: Option<String>,
 }
 
 impl Emit {
@@ -116,5 +120,20 @@ impl Emit {
 
     pub fn should_emit(&self) -> bool {
         !self.pvs.is_empty() && self.pvs.iter().all(|pv| pv.is_some())
+    }
+
+    pub fn finish(&mut self, uci: Option<&UciOut>) {
+        self.pvs.retain(Option::is_some);
+        self.bestmove = Some(match uci {
+            Some(UciOut::Bestmove { m: Some(m), .. }) => m.to_string(),
+            _ => "(none)".to_owned(),
+        });
+        self.ponder = match uci {
+            Some(UciOut::Bestmove {
+                ponder: Some(ponder),
+                ..
+            }) => Some(ponder.to_string()),
+            _ => None,
+        };
     }
 }
