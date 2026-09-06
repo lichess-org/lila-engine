@@ -38,7 +38,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use crate::{
     api::{AcquireRequest, AcquireResponse, AnalyseRequest, InvalidWorkError, Work},
     emit::Emit,
-    hub::{Hub, IsValid},
+    hub::{Hub, IsValid, QueueFull},
     model::{Engine, EngineId, JobId, ProviderSelector},
     ongoing::Ongoing,
     repo::Repo,
@@ -157,6 +157,8 @@ enum Error {
     Recv(#[from] RecvError),
     #[error("provider did not pick up work")]
     ProviderTimeout,
+    #[error("too many pending requests for this provider")]
+    QueueFull,
 }
 
 impl IntoResponse for Error {
@@ -167,7 +169,7 @@ impl IntoResponse for Error {
                 StatusCode::BAD_REQUEST
             }
             Error::EngineNotFound | Error::WorkNotFound => StatusCode::NOT_FOUND,
-            Error::ProviderTimeout => StatusCode::SERVICE_UNAVAILABLE,
+            Error::ProviderTimeout | Error::QueueFull => StatusCode::SERVICE_UNAVAILABLE,
         };
         (status, self.to_string()).into_response()
     }
@@ -248,7 +250,8 @@ async fn analyse(
             work,
             pos,
         },
-    );
+    )
+    .map_err(|QueueFull| Error::QueueFull)?;
     let rx = timeout(Duration::from_secs(15), rx)
         .await
         .map_err(|_: Elapsed| Error::ProviderTimeout)??;
