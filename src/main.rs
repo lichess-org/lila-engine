@@ -17,7 +17,7 @@ use futures::Stream;
 use futures_util::stream::{StreamExt, TryStreamExt};
 use listenfd::ListenFd;
 use serde::Deserialize;
-use shakmaty::variant::VariantPosition;
+use shakmaty::{uci::UciMove, variant::VariantPosition};
 use thiserror::Error;
 use tikv_jemallocator::Jemalloc;
 use tokio::{
@@ -43,7 +43,7 @@ use crate::{
     model::{Engine, EngineId, JobId, ProviderSelector},
     ongoing::Ongoing,
     repo::Repo,
-    uci::UciOut,
+    uci::{BestMove, ProtocolError, UciOut},
 };
 
 mod api;
@@ -63,7 +63,11 @@ struct Opt {
     #[arg(long, default_value = "127.0.0.1:9666", env = "LILA_ENGINE_BIND")]
     pub bind: SocketAddr,
     /// Database.
-    #[arg(long, default_value = "mongodb://localhost", env = "LILA_ENGINE_MONGODB")]
+    #[arg(
+        long,
+        default_value = "mongodb://localhost",
+        env = "LILA_ENGINE_MONGODB"
+    )]
     pub mongodb: String,
     /// Certificate file for HTTPS server.
     #[arg(long, value_parser = PathBufValueParser::new(), env = "LILA_ENGINE_CERT_PEM")]
@@ -274,33 +278,44 @@ async fn submit(
     let (tx, rx) = mpsc::channel(1);
     let _: Result<(), _> = work.tx.send(rx);
 
-    let stream = body
-        .into_data_stream()
-        .map_err(io::Error::other);
+    let stream = body.into_data_stream().map_err(io::Error::other);
     let read = StreamReader::new(stream);
     let mut lines = read.lines();
 
     let mut emit = Emit::default();
 
-    while let Some(line) = select! {
-        maybe_line = lines.next_line() => maybe_line?,
-        _ = tx.closed() => {
-            log::info!("requester gone away");
-            None
-        },
-    } {
-        if let Some(uci) = UciOut::from_line(&line)? {
-            emit.update(&uci, &work.pos);
-
-            if matches!(uci, UciOut::Bestmove { .. }) {
-                break;
+    let terminal: Result<(BestMove, Option<UciMove>), Error> = loop {
+        let line = select! {
+            maybe_line = lines.next_line() => match maybe_line {
+                Ok(Some(line)) => line,
+                Ok(None) => break Err(Error::Protocol(ProtocolError::UnexpectedEndOfStream)),
+                Err(err) => break Err(Error::Io(err)),
+            },
+            _ = tx.closed() => {
+                log::info!("requester gone away");
+                return Ok(());
             }
+        };
+        match UciOut::from_line(&line) {
+            Ok(Some(UciOut::Bestmove { m, ponder })) => break Ok((m, ponder)),
+            Ok(Some(uci)) => {
+                emit.update(&uci, &work.pos);
 
-            if emit.should_emit() && tx.send(emit.clone()).await.is_err() {
-                log::info!("requester suddenly gone away");
-                break;
+                if emit.should_emit() && tx.send(emit.clone()).await.is_err() {
+                    log::info!("requester suddenly gone away");
+                    return Ok(());
+                }
             }
+            Ok(None) => {}
+            Err(err) => break Err(Error::Protocol(err)),
         }
+    };
+
+    let (bestmove, ponder) = terminal.as_ref().ok().copied().unwrap_or_default();
+    emit.finish(bestmove, ponder);
+    if tx.send(emit).await.is_err() {
+        log::info!("requester suddenly gone away");
     }
-    Ok(())
+
+    terminal.map(drop)
 }
