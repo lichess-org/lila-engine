@@ -16,7 +16,7 @@ use clap::{builder::PathBufValueParser, Parser};
 use futures::Stream;
 use futures_util::stream::{StreamExt, TryStreamExt};
 use listenfd::ListenFd;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use shakmaty::{uci::UciMove, variant::VariantPosition};
 use thiserror::Error;
 use tikv_jemallocator::Jemalloc;
@@ -78,10 +78,31 @@ struct Opt {
 }
 
 struct Job {
-    tx: oneshot::Sender<mpsc::Receiver<Emit>>,
+    tx: oneshot::Sender<mpsc::Receiver<AnalyseResponse>>,
     pos: VariantPosition,
     engine: Engine,
     work: Work,
+}
+
+#[derive(Serialize)]
+#[serde(untagged)]
+enum AnalyseResponse {
+    Emit(Emit),
+    Control(ControlMessage),
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum ControlMessage {
+    Keepalive(bool),
+}
+
+impl ControlMessage {
+    fn from_line(line: &str) -> Option<Result<Self, serde_json::Error>> {
+        line.trim_start()
+            .starts_with('{')
+            .then(|| serde_json::from_str(line))
+    }
 }
 
 impl IsValid for Job {
@@ -125,6 +146,8 @@ enum Error {
     WorkNotFound,
     #[error("i/o error: {0}")]
     Io(#[from] io::Error),
+    #[error("invalid control message: {0}")]
+    BadNdjson(#[from] serde_json::Error),
     #[error("uci protocol error: {0}")]
     Protocol(#[from] uci::ProtocolError),
     #[error("invalid work: {0}")]
@@ -139,7 +162,9 @@ impl IntoResponse for Error {
     fn into_response(self) -> Response {
         let status = match self {
             Error::MongoDb(_) | Error::Recv(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            Error::Io(_) | Error::Protocol(_) | Error::InvalidWork(_) => StatusCode::BAD_REQUEST,
+            Error::Io(_) | Error::BadNdjson(_) | Error::Protocol(_) | Error::InvalidWork(_) => {
+                StatusCode::BAD_REQUEST
+            }
             Error::EngineNotFound | Error::WorkNotFound => StatusCode::NOT_FOUND,
             Error::ProviderTimeout => StatusCode::SERVICE_UNAVAILABLE,
         };
@@ -203,8 +228,10 @@ async fn analyse(
     State(hub): State<&'static Hub<ProviderSelector, Job>>,
     State(repo): State<&'static Repo>,
     Json(req): Json<AnalyseRequest>,
-) -> Result<JsonLines<impl Stream<Item = Result<Emit, Infallible>>, json_lines::AsResponse>, Error>
-{
+) -> Result<
+    JsonLines<impl Stream<Item = Result<AnalyseResponse, Infallible>>, json_lines::AsResponse>,
+    Error,
+> {
     let (engine, provider_selector) = repo
         .find(id, req.client_secret)
         .await?
@@ -296,12 +323,26 @@ async fn submit(
                 return Ok(());
             }
         };
+
+        if let Some(control) = ControlMessage::from_line(&line) {
+            let control = match control {
+                Ok(control) => control,
+                Err(err) => break Err(Error::BadNdjson(err)),
+            };
+            if handle_control_message(control, &tx).await.is_err() {
+                log::info!("requester suddenly gone away");
+                return Ok(());
+            }
+            continue;
+        }
+
         match UciOut::from_line(&line) {
             Ok(Some(UciOut::Bestmove { m, ponder })) => break Ok((m, ponder)),
             Ok(Some(uci)) => {
                 emit.update(&uci, &work.pos);
 
-                if emit.should_emit() && tx.send(emit.clone()).await.is_err() {
+                if emit.should_emit() && tx.send(AnalyseResponse::Emit(emit.clone())).await.is_err()
+                {
                     log::info!("requester suddenly gone away");
                     return Ok(());
                 }
@@ -313,9 +354,16 @@ async fn submit(
 
     let (bestmove, ponder) = terminal.as_ref().ok().copied().unwrap_or_default();
     emit.finish(bestmove, ponder);
-    if tx.send(emit).await.is_err() {
+    if tx.send(AnalyseResponse::Emit(emit)).await.is_err() {
         log::info!("requester suddenly gone away");
     }
 
     terminal.map(drop)
+}
+
+async fn handle_control_message(
+    control: ControlMessage,
+    tx: &mpsc::Sender<AnalyseResponse>,
+) -> Result<(), mpsc::error::SendError<AnalyseResponse>> {
+    tx.send(AnalyseResponse::Control(control)).await
 }
