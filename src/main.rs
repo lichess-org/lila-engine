@@ -84,13 +84,21 @@ struct Job {
 #[serde(untagged)]
 enum AnalyseResponse {
     Emit(Emit),
-    Control(serde_json::Value),
+    Control(ControlMessage),
 }
 
-fn parse_control_message(line: &str) -> Option<Result<serde_json::Value, serde_json::Error>> {
-    line.trim_start()
-        .starts_with('{')
-        .then(|| serde_json::from_str(line))
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum ControlMessage {
+    Keepalive(bool),
+}
+
+impl ControlMessage {
+    fn from_line(line: &str) -> Option<Result<Self, serde_json::Error>> {
+        line.trim_start()
+            .starts_with('{')
+            .then(|| serde_json::from_str(line))
+    }
 }
 
 impl IsValid for Job {
@@ -307,7 +315,7 @@ async fn submit(
             None
         },
     } {
-        if let Some(control) = parse_control_message(&line) {
+        if let Some(control) = ControlMessage::from_line(&line) {
             if handle_control_message(control?, &tx).await.is_err() {
                 log::info!("requester suddenly gone away");
                 break;
@@ -332,10 +340,8 @@ async fn submit(
 }
 
 async fn handle_control_message(
-    control: serde_json::Value,
+    control: ControlMessage,
     tx: &mpsc::Sender<AnalyseResponse>,
 ) -> Result<(), mpsc::error::SendError<AnalyseResponse>> {
-    // lila-engine just forwards keepalives to the requester at present.
-    // But it could acquire special handling for one or more control messages here in the future.
     tx.send(AnalyseResponse::Control(control)).await
 }
