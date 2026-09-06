@@ -84,7 +84,13 @@ struct Job {
 #[serde(untagged)]
 enum AnalyseResponse {
     Emit(Emit),
-    Keepalive { keepalive: bool },
+    Control(serde_json::Value),
+}
+
+fn parse_control_message(line: &str) -> Option<Result<serde_json::Value, serde_json::Error>> {
+    line.trim_start()
+        .starts_with('{')
+        .then(|| serde_json::from_str(line))
 }
 
 impl IsValid for Job {
@@ -128,6 +134,8 @@ enum Error {
     WorkNotFound,
     #[error("i/o error: {0}")]
     Io(#[from] io::Error),
+    #[error("invalid control message: {0}")]
+    BadNdjson(#[from] serde_json::Error),
     #[error("uci protocol error: {0}")]
     Protocol(#[from] uci::ProtocolError),
     #[error("invalid work: {0}")]
@@ -142,7 +150,9 @@ impl IntoResponse for Error {
     fn into_response(self) -> Response {
         let status = match self {
             Error::MongoDb(_) | Error::Recv(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            Error::Io(_) | Error::Protocol(_) | Error::InvalidWork(_) => StatusCode::BAD_REQUEST,
+            Error::Io(_) | Error::BadNdjson(_) | Error::Protocol(_) | Error::InvalidWork(_) => {
+                StatusCode::BAD_REQUEST
+            }
             Error::EngineNotFound | Error::WorkNotFound => StatusCode::NOT_FOUND,
             Error::ProviderTimeout => StatusCode::SERVICE_UNAVAILABLE,
         };
@@ -297,11 +307,8 @@ async fn submit(
             None
         },
     } {
-        if line.trim_start().starts_with('{')
-            && serde_json::from_str::<serde_json::Value>(&line)
-                .is_ok_and(|json| json == serde_json::json!({ "keepalive": true }))
-        {
-            if tx.send(AnalyseResponse::Keepalive { keepalive: true }).await.is_err() {
+        if let Some(control) = parse_control_message(&line) {
+            if handle_control_message(control?, &tx).await.is_err() {
                 log::info!("requester suddenly gone away");
                 break;
             }
@@ -322,4 +329,13 @@ async fn submit(
         }
     }
     Ok(())
+}
+
+async fn handle_control_message(
+    control: serde_json::Value,
+    tx: &mpsc::Sender<AnalyseResponse>,
+) -> Result<(), mpsc::error::SendError<AnalyseResponse>> {
+    // lila-engine just forwards keepalives to the requester at present.
+    // But it could acquire special handling for one or more control messages here in the future.
+    tx.send(AnalyseResponse::Control(control)).await
 }
