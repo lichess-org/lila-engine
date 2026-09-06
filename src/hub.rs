@@ -100,7 +100,10 @@ impl<S, R: IsValid> Shard<S, R> {
     fn garbage_collect(&mut self) {
         self.map.retain(|_, queue| {
             queue.inner.retain(|item| item.is_valid());
-            !queue.inner.is_empty()
+
+            // Only drop the empty queue if there are no waiters on it, i.e.,
+            // if we can acquire a mutable reference to the signal.
+            !queue.inner.is_empty() || Arc::get_mut(&mut queue.signal).is_none()
         });
     }
 }
