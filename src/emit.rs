@@ -6,7 +6,7 @@ use shakmaty::{uci::UciMove, variant::VariantPosition, CastlingMode, Position};
 
 use crate::{
     model::MultiPv,
-    uci::{Eval, UciOut},
+    uci::{BestMove, Eval, UciOut},
 };
 
 #[serde_as]
@@ -70,10 +70,12 @@ pub struct Emit {
     depth: u32,
     nodes: u64,
     pvs: Vec<Option<EmitPv>>,
+    #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    bestmove: Option<String>,
+    bestmove: Option<BestMove>,
+    #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    ponder: Option<String>,
+    ponder: Option<UciMove>,
 }
 
 impl Emit {
@@ -98,9 +100,7 @@ impl Emit {
             {
                 self.nodes = nodes;
             }
-            for pv in &mut self.pvs {
-                *pv = None;
-            }
+            self.pvs.fill(None);
         } else if let UciOut::Info {
             depth: Some(depth), ..
         } = *uci
@@ -119,21 +119,12 @@ impl Emit {
     }
 
     pub fn should_emit(&self) -> bool {
-        !self.pvs.is_empty() && self.pvs.iter().all(|pv| pv.is_some())
+        self.bestmove.is_some() || (!self.pvs.is_empty() && self.pvs.iter().all(|pv| pv.is_some()))
     }
 
-    pub fn finish(&mut self, uci: Option<&UciOut>) {
+    pub fn finish(&mut self, bestmove: BestMove, ponder: Option<UciMove>) {
         self.pvs.retain(Option::is_some);
-        self.bestmove = Some(match uci {
-            Some(UciOut::Bestmove { m: Some(m), .. }) => m.to_string(),
-            _ => "(none)".to_owned(),
-        });
-        self.ponder = match uci {
-            Some(UciOut::Bestmove {
-                ponder: Some(ponder),
-                ..
-            }) => Some(ponder.to_string()),
-            _ => None,
-        };
+        self.bestmove = Some(bestmove);
+        self.ponder = ponder;
     }
 }

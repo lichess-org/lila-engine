@@ -21,6 +21,8 @@ pub enum ProtocolError {
     InvalidInteger(#[from] ParseIntError),
     #[error("invalid multipv: {0}")]
     InvalidMultipv(#[from] InvalidMultiPvError),
+    #[error("expected bestmove before end of stream")]
+    UnexpectedEndOfStream,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,11 +72,23 @@ impl fmt::Display for Eval {
     }
 }
 
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
+pub struct BestMove(Option<UciMove>);
+
+impl fmt::Display for BestMove {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.0 {
+            Some(m) => m.fmt(f),
+            None => f.write_str("(none)"),
+        }
+    }
+}
+
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum UciOut {
     Bestmove {
-        m: Option<UciMove>,
+        m: BestMove,
         ponder: Option<UciMove>,
     },
     Info {
@@ -108,10 +122,7 @@ impl fmt::Display for UciOut {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             UciOut::Bestmove { m, ponder } => {
-                match m {
-                    Some(m) => write!(f, "bestmove {m}")?,
-                    None => f.write_str("bestmove (none)")?,
-                }
+                write!(f, "bestmove {m}")?;
                 if let Some(ponder) = ponder {
                     write!(f, " ponder {ponder}")?;
                 }
@@ -256,8 +267,8 @@ impl<'a> Parser<'a> {
     fn parse_bestmove(&mut self) -> Result<UciOut, ProtocolError> {
         Ok(UciOut::Bestmove {
             m: match self.next() {
-                Some("(none)") | None => None,
-                Some(m) => Some(m.parse()?),
+                Some("(none)") | None => BestMove(None),
+                Some(m) => BestMove(Some(m.parse()?)),
             },
             ponder: match self.next() {
                 Some("ponder") => match self.next() {
