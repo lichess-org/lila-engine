@@ -297,7 +297,10 @@ async fn submit(
             None
         },
     } {
-        if line == r#"{"keepalive":true}"# {
+        if line.trim_start().starts_with('{')
+            && serde_json::from_str::<serde_json::Value>(&line)
+                .is_ok_and(|json| json == serde_json::json!({ "keepalive": true }))
+        {
             if tx.send(AnalyseResponse::Keepalive { keepalive: true }).await.is_err() {
                 log::info!("requester suddenly gone away");
                 break;
