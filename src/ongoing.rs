@@ -12,6 +12,8 @@ use crate::hub::IsValid;
 
 const NUM_SHARDS: usize = 128;
 
+const GC_SWEEP_INTERVAL: Duration = Duration::from_secs(31);
+
 pub struct Ongoing<S, R> {
     random_state: RandomState,
     shards: [Mutex<HashMap<S, R>>; NUM_SHARDS],
@@ -45,7 +47,7 @@ impl<S, R: IsValid> Ongoing<S, R> {
         loop {
             for shard in &self.shards {
                 shard.lock().unwrap().retain(|_, item| item.is_valid());
-                sleep(Duration::from_secs(7)).await;
+                sleep(GC_SWEEP_INTERVAL / NUM_SHARDS as u32).await;
             }
         }
     }

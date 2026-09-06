@@ -12,6 +12,8 @@ const NUM_SHARDS: usize = 64;
 
 const MAX_ITEMS: usize = 1024;
 
+const GC_SWEEP_INTERVAL: Duration = Duration::from_secs(37);
+
 pub trait IsValid {
     fn is_valid(&self) -> bool;
 }
@@ -57,7 +59,7 @@ impl<S, R: IsValid> Hub<S, R> {
         loop {
             for shard in &self.shards {
                 shard.lock().unwrap().garbage_collect();
-                sleep(Duration::from_secs(13)).await;
+                sleep(GC_SWEEP_INTERVAL / NUM_SHARDS as u32).await;
             }
         }
     }
