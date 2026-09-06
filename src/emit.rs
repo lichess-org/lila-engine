@@ -119,7 +119,7 @@ impl Emit {
     }
 
     pub fn should_emit(&self) -> bool {
-        self.bestmove.is_some() || (!self.pvs.is_empty() && self.pvs.iter().all(|pv| pv.is_some()))
+        !self.pvs.is_empty() && self.pvs.iter().all(|pv| pv.is_some())
     }
 
     pub fn finish(&mut self, bestmove: BestMove, ponder: Option<UciMove>) {
