@@ -21,7 +21,6 @@ use shakmaty::{uci::UciMove, variant::VariantPosition};
 use thiserror::Error;
 use tikv_jemallocator::Jemalloc;
 use tokio::{
-    io::AsyncBufReadExt,
     net::{TcpListener, UnixListener},
     select,
     sync::{
@@ -44,6 +43,7 @@ use crate::{
     ongoing::Ongoing,
     repo::Repo,
     uci::{BestMove, ProtocolError, UciOut},
+    util::next_line_limited,
 };
 
 mod api;
@@ -53,6 +53,7 @@ mod model;
 mod ongoing;
 mod repo;
 mod uci;
+mod util;
 
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
@@ -306,19 +307,18 @@ async fn submit(
     let _: Result<(), _> = work.tx.send(rx);
 
     let stream = body.into_data_stream().map_err(io::Error::other);
-    let read = StreamReader::new(stream);
-    let mut lines = read.lines();
+    let mut read = StreamReader::new(stream);
 
     let mut emit = Emit::default();
 
     let terminal: Result<(BestMove, Option<UciMove>), Error> = loop {
         let line = select! {
-            maybe_line = lines.next_line() => match maybe_line {
+            maybe_line = next_line_limited(&mut read, 16 * 1024) => match maybe_line {
                 Ok(Some(line)) => line,
                 Ok(None) => break Err(Error::Protocol(ProtocolError::UnexpectedEndOfStream)),
                 Err(err) => break Err(Error::Io(err)),
             },
-            _ = tx.closed() => {
+            _ = tx.closed() => { // Cancels next_line_limited(), dropping partial reads
                 log::info!("requester gone away");
                 return Ok(());
             }
