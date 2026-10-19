@@ -15,6 +15,14 @@ Providers
 See https://github.com/lichess-org/external-engine for external engine
 providers.
 
+Protocol version
+----------------
+
+Providers must send `"protocolVersion": 1` in both engine registration
+(including updates) and work acquisition requests. A missing version is legacy
+and unsupported. The broker rejects incompatible registrations and requests with
+HTTP 409 and upgrade instructions.
+
 Usage
 -----
 

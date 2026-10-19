@@ -10,6 +10,8 @@ pub struct ExternalEngine {
     #[serde(rename = "_id")]
     id: EngineId,
     provider_selector: ProviderSelector,
+    #[serde(default)]
+    pub protocol_version: u32,
     #[serde(flatten)]
     config: EngineConfig,
 }

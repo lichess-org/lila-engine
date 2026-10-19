@@ -113,6 +113,8 @@ pub struct AnalyseRequest {
 #[serde(rename_all = "camelCase")]
 pub struct AcquireRequest {
     pub provider_secret: ProviderSecret,
+    #[serde(default)]
+    pub protocol_version: u32,
 }
 
 #[derive(Serialize, Debug)]

@@ -58,6 +58,16 @@ mod util;
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
+const PROTOCOL_VERSION: u32 = 1;
+
+fn check_protocol_version(version: u32) -> Result<(), Error> {
+    if version == PROTOCOL_VERSION {
+        Ok(())
+    } else {
+        Err(Error::UnsupportedProtocol)
+    }
+}
+
 #[derive(Parser)]
 struct Opt {
     /// Binding address for plain HTTP.
@@ -159,6 +169,8 @@ enum Error {
     ProviderTimeout,
     #[error("too many pending requests for this provider")]
     QueueFull,
+    #[error("Your external engine host is outdated. See https://lichess.org/page/external-engine")]
+    UnsupportedProtocol,
 }
 
 impl IntoResponse for Error {
@@ -170,6 +182,7 @@ impl IntoResponse for Error {
             }
             Error::EngineNotFound | Error::WorkNotFound => StatusCode::NOT_FOUND,
             Error::ProviderTimeout | Error::QueueFull => StatusCode::SERVICE_UNAVAILABLE,
+            Error::UnsupportedProtocol => StatusCode::CONFLICT,
         };
         (status, self.to_string()).into_response()
     }
@@ -235,11 +248,12 @@ async fn analyse(
     JsonLines<impl Stream<Item = Result<AnalyseResponse, Infallible>>, json_lines::AsResponse>,
     Error,
 > {
-    let (engine, provider_selector) = repo
+    let registered = repo
         .find(id, req.client_secret)
         .await?
-        .ok_or(Error::EngineNotFound)?
-        .into_engine_and_selector();
+        .ok_or(Error::EngineNotFound)?;
+    check_protocol_version(registered.protocol_version)?;
+    let (engine, provider_selector) = registered.into_engine_and_selector();
     let (work, pos) = req.work.sanitize(&engine)?;
     let (tx, rx) = oneshot::channel();
     hub.submit(
@@ -264,25 +278,18 @@ async fn analyse(
 #[typed_path("/api/external-engine/work")]
 struct AcquirePath;
 
-struct AcquireTimeout;
-
-impl IntoResponse for AcquireTimeout {
-    fn into_response(self) -> Response {
-        StatusCode::NO_CONTENT.into_response()
-    }
-}
-
 #[axum_macros::debug_handler(state = AppState)]
 async fn acquire(
     _: AcquirePath,
     State(hub): State<&'static Hub<ProviderSelector, Job>>,
     State(ongoing): State<&'static Ongoing<JobId, Job>>,
     Json(req): Json<AcquireRequest>,
-) -> Result<Json<AcquireResponse>, AcquireTimeout> {
+) -> Result<Response, Error> {
+    check_protocol_version(req.protocol_version)?;
     let selector = req.provider_secret.selector();
-    let job = timeout(Duration::from_secs(10), hub.acquire(selector))
-        .await
-        .map_err(|_: Elapsed| AcquireTimeout)?;
+    let Ok(job) = timeout(Duration::from_secs(10), hub.acquire(selector)).await else {
+        return Ok(StatusCode::NO_CONTENT.into_response());
+    };
     let id = JobId::random();
     let response = AcquireResponse {
         id: id.clone(),
@@ -290,7 +297,7 @@ async fn acquire(
         work: job.work.clone(),
     };
     ongoing.add(id, job);
-    Ok(Json(response))
+    Ok(Json(response).into_response())
 }
 
 #[derive(TypedPath, Deserialize)]
